@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { ArrowLeft, Type, Image, Minus, Square, Columns, MousePointerClick, Eye, Save, Send, GripVertical, Trash2, Plus } from "lucide-react";
+import { useState, useRef, useCallback } from "react";
+import { ArrowLeft, Type, Image, Minus, Square, Columns, Eye, Save, Send, GripVertical, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,13 +47,25 @@ const EmailEditor = () => {
   const [previewName, setPreviewName] = useState("Newsletter Abril");
   const [activeTab, setActiveTab] = useState("edit");
 
-  const addBlock = (type: BlockType) => {
+  // Drag & Drop state
+  const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);
+  const [draggedNewType, setDraggedNewType] = useState<BlockType | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
+
+  const addBlock = (type: BlockType, atIndex?: number) => {
     const newBlock: EmailBlock = {
       id: Date.now().toString(),
       type,
       content: { ...defaultContent[type] },
     };
-    setBlocks([...blocks, newBlock]);
+    if (atIndex !== undefined) {
+      const newBlocks = [...blocks];
+      newBlocks.splice(atIndex, 0, newBlock);
+      setBlocks(newBlocks);
+    } else {
+      setBlocks([...blocks, newBlock]);
+    }
     setSelectedBlock(newBlock.id);
   };
 
@@ -66,44 +78,104 @@ const EmailEditor = () => {
     if (selectedBlock === id) setSelectedBlock(null);
   };
 
-  const moveBlock = (id: string, dir: -1 | 1) => {
-    const idx = blocks.findIndex((b) => b.id === id);
-    if ((dir === -1 && idx === 0) || (dir === 1 && idx === blocks.length - 1)) return;
-    const newBlocks = [...blocks];
-    [newBlocks[idx], newBlocks[idx + dir]] = [newBlocks[idx + dir], newBlocks[idx]];
-    setBlocks(newBlocks);
+  // --- Drag from sidebar (new block) ---
+  const handleSidebarDragStart = (e: React.DragEvent, type: BlockType) => {
+    setDraggedNewType(type);
+    setDraggedBlockId(null);
+    e.dataTransfer.effectAllowed = "copy";
+    e.dataTransfer.setData("text/plain", type);
+  };
+
+  // --- Drag existing block (reorder) ---
+  const handleBlockDragStart = (e: React.DragEvent, blockId: string) => {
+    e.stopPropagation();
+    setDraggedBlockId(blockId);
+    setDraggedNewType(null);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", blockId);
+  };
+
+  // --- Canvas drop zone ---
+  const handleCanvasDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = draggedNewType ? "copy" : "move";
+
+    // Calculate drop index based on mouse position
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const blockElements = canvas.querySelectorAll("[data-block-id]");
+    let newDropIndex = blocks.length;
+
+    for (let i = 0; i < blockElements.length; i++) {
+      const rect = blockElements[i].getBoundingClientRect();
+      const midY = rect.top + rect.height / 2;
+      if (e.clientY < midY) {
+        newDropIndex = i;
+        break;
+      }
+    }
+
+    setDropIndex(newDropIndex);
+  }, [blocks.length, draggedNewType]);
+
+  const handleCanvasDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const targetIndex = dropIndex ?? blocks.length;
+
+    if (draggedNewType) {
+      // New block from sidebar
+      addBlock(draggedNewType, targetIndex);
+    } else if (draggedBlockId) {
+      // Reorder existing block
+      const fromIndex = blocks.findIndex((b) => b.id === draggedBlockId);
+      if (fromIndex === -1) return;
+      const newBlocks = [...blocks];
+      const [moved] = newBlocks.splice(fromIndex, 1);
+      const adjustedIndex = targetIndex > fromIndex ? targetIndex - 1 : targetIndex;
+      newBlocks.splice(adjustedIndex, 0, moved);
+      setBlocks(newBlocks);
+    }
+
+    setDraggedBlockId(null);
+    setDraggedNewType(null);
+    setDropIndex(null);
+  }, [dropIndex, draggedNewType, draggedBlockId, blocks]);
+
+  const handleCanvasDragLeave = (e: React.DragEvent) => {
+    // Only clear if leaving the canvas entirely
+    if (canvasRef.current && !canvasRef.current.contains(e.relatedTarget as Node)) {
+      setDropIndex(null);
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggedBlockId(null);
+    setDraggedNewType(null);
+    setDropIndex(null);
   };
 
   const renderBlock = (block: EmailBlock, isPreview = false) => {
-    const selected = selectedBlock === block.id && !isPreview;
-    const wrapper = isPreview ? "" : `relative cursor-pointer rounded-lg transition-all ${selected ? "ring-2 ring-primary" : "hover:ring-1 hover:ring-border"}`;
-
     switch (block.type) {
       case "heading":
         return (
-          <div className={wrapper} onClick={() => !isPreview && setSelectedBlock(block.id)}>
-            <h1 style={{ textAlign: (block.content.align as any) || "left", fontSize: "24px", fontWeight: "bold", margin: "16px 0", color: "#1a1a2e" }}>
-              {block.content.text}
-            </h1>
-          </div>
+          <h1 style={{ textAlign: (block.content.align as any) || "left", fontSize: "24px", fontWeight: "bold", margin: "16px 0", color: "#1a1a2e" }}>
+            {block.content.text}
+          </h1>
         );
       case "text":
         return (
-          <div className={wrapper} onClick={() => !isPreview && setSelectedBlock(block.id)}>
-            <p style={{ fontSize: "14px", lineHeight: "1.6", color: "#4a4a5a", margin: "12px 0" }}>
-              {block.content.text}
-            </p>
-          </div>
+          <p style={{ fontSize: "14px", lineHeight: "1.6", color: "#4a4a5a", margin: "12px 0" }}>
+            {block.content.text}
+          </p>
         );
       case "image":
         return (
-          <div className={wrapper} onClick={() => !isPreview && setSelectedBlock(block.id)}>
-            <img src={block.content.url} alt={block.content.alt} style={{ width: "100%", borderRadius: "8px", margin: "12px 0" }} />
-          </div>
+          <img src={block.content.url} alt={block.content.alt} style={{ width: "100%", borderRadius: "8px", margin: "12px 0" }} />
         );
       case "button":
         return (
-          <div className={wrapper} onClick={() => !isPreview && setSelectedBlock(block.id)} style={{ textAlign: (block.content.align as any) || "center", margin: "16px 0" }}>
+          <div style={{ textAlign: (block.content.align as any) || "center", margin: "16px 0" }}>
             <a href={block.content.url} style={{
               display: "inline-block", padding: "12px 28px", backgroundColor: "hsl(217, 91%, 60%)",
               color: "#ffffff", borderRadius: "8px", textDecoration: "none", fontSize: "14px", fontWeight: "600",
@@ -113,21 +185,15 @@ const EmailEditor = () => {
           </div>
         );
       case "divider":
-        return (
-          <div className={wrapper} onClick={() => !isPreview && setSelectedBlock(block.id)}>
-            <hr style={{ border: "none", borderTop: "1px solid #e5e7eb", margin: "20px 0" }} />
-          </div>
-        );
+        return <hr style={{ border: "none", borderTop: "1px solid #e5e7eb", margin: "20px 0" }} />;
       case "columns":
         return (
-          <div className={wrapper} onClick={() => !isPreview && setSelectedBlock(block.id)}>
-            <div style={{ display: "flex", gap: "16px", margin: "12px 0" }}>
-              <div style={{ flex: 1, padding: "12px", backgroundColor: "#f9fafb", borderRadius: "8px", fontSize: "14px", color: "#4a4a5a" }}>
-                {block.content.left}
-              </div>
-              <div style={{ flex: 1, padding: "12px", backgroundColor: "#f9fafb", borderRadius: "8px", fontSize: "14px", color: "#4a4a5a" }}>
-                {block.content.right}
-              </div>
+          <div style={{ display: "flex", gap: "16px", margin: "12px 0" }}>
+            <div style={{ flex: 1, padding: "12px", backgroundColor: "#f9fafb", borderRadius: "8px", fontSize: "14px", color: "#4a4a5a" }}>
+              {block.content.left}
+            </div>
+            <div style={{ flex: 1, padding: "12px", backgroundColor: "#f9fafb", borderRadius: "8px", fontSize: "14px", color: "#4a4a5a" }}>
+              {block.content.right}
             </div>
           </div>
         );
@@ -137,6 +203,10 @@ const EmailEditor = () => {
   };
 
   const selectedBlockData = blocks.find((b) => b.id === selectedBlock);
+
+  const DropIndicator = () => (
+    <div className="h-1 bg-primary rounded-full mx-2 my-1 transition-all animate-pulse" />
+  );
 
   return (
     <div className="space-y-4">
@@ -161,17 +231,21 @@ const EmailEditor = () => {
       </div>
 
       <div className="flex gap-4 items-start">
-        <div className="w-16 flex flex-col gap-2 sticky top-8">
+        {/* Sidebar - draggable block types */}
+        <div className="w-20 flex flex-col gap-2 sticky top-8">
+          <p className="text-[10px] text-muted-foreground text-center font-medium uppercase tracking-wider mb-1">Bloques</p>
           {blockTypes.map((bt) => (
-            <button
+            <div
               key={bt.type}
-              onClick={() => addBlock(bt.type)}
-              className="w-14 h-14 rounded-xl bg-card border flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors"
-              title={bt.label}
+              draggable
+              onDragStart={(e) => handleSidebarDragStart(e, bt.type)}
+              onDragEnd={handleDragEnd}
+              className="w-[72px] h-[64px] rounded-xl bg-card border flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:text-foreground hover:border-primary/40 hover:shadow-md transition-all cursor-grab active:cursor-grabbing select-none"
+              title={`Arrastra "${bt.label}" al editor`}
             >
-              <bt.icon className="w-4 h-4" />
-              <span className="text-[9px]">{bt.label}</span>
-            </button>
+              <bt.icon className="w-5 h-5" />
+              <span className="text-[10px] font-medium">{bt.label}</span>
+            </div>
           ))}
         </div>
 
@@ -179,7 +253,7 @@ const EmailEditor = () => {
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="mb-4">
               <TabsTrigger value="edit">Editar</TabsTrigger>
-              <TabsTrigger value="preview">Vista Previa</TabsTrigger>
+              <TabsTrigger value="preview"><Eye className="w-3.5 h-3.5 mr-1.5" /> Vista Previa</TabsTrigger>
             </TabsList>
 
             <TabsContent value="edit">
@@ -188,27 +262,71 @@ const EmailEditor = () => {
                 <Input value={subject} onChange={(e) => setSubject(e.target.value)} className="mt-1" placeholder="Asunto..." />
               </div>
 
-              <div className="bg-card rounded-xl border shadow-sm">
+              {/* Drop zone canvas */}
+              <div
+                ref={canvasRef}
+                onDragOver={handleCanvasDragOver}
+                onDrop={handleCanvasDrop}
+                onDragLeave={handleCanvasDragLeave}
+                className={`bg-card rounded-xl border shadow-sm transition-colors min-h-[400px] ${
+                  (draggedNewType || draggedBlockId) ? "border-primary/40 border-dashed" : ""
+                }`}
+              >
                 <div style={{ maxWidth: "600px", margin: "0 auto", padding: "32px 24px", backgroundColor: "#ffffff" }}>
-                  {blocks.map((block) => (
-                    <div key={block.id} className="group relative">
-                      <div className="absolute -left-8 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 flex flex-col gap-0.5 transition-opacity">
-                        <button onClick={() => moveBlock(block.id, -1)} className="text-muted-foreground hover:text-foreground text-xs">▲</button>
-                        <GripVertical className="w-3.5 h-3.5 text-muted-foreground" />
-                        <button onClick={() => moveBlock(block.id, 1)} className="text-muted-foreground hover:text-foreground text-xs">▼</button>
-                      </div>
-                      {renderBlock(block)}
-                      <button
-                        onClick={() => removeBlock(block.id)}
-                        className="absolute -right-3 -top-3 w-6 h-6 rounded-full bg-destructive text-destructive-foreground items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity hidden group-hover:flex"
+                  {blocks.length === 0 && !draggedNewType && !draggedBlockId && (
+                    <div className="py-20 text-center text-muted-foreground border-2 border-dashed rounded-xl">
+                      <GripVertical className="w-8 h-8 mx-auto mb-3 opacity-40" />
+                      <p className="text-sm font-medium">Arrastra bloques aquí</p>
+                      <p className="text-xs mt-1">Usa los bloques del panel izquierdo</p>
+                    </div>
+                  )}
+
+                  {blocks.map((block, index) => (
+                    <div key={block.id}>
+                      {/* Drop indicator before this block */}
+                      {dropIndex === index && <DropIndicator />}
+
+                      <div
+                        data-block-id={block.id}
+                        draggable
+                        onDragStart={(e) => handleBlockDragStart(e, block.id)}
+                        onDragEnd={handleDragEnd}
+                        onClick={() => setSelectedBlock(block.id)}
+                        className={`group relative rounded-lg transition-all cursor-pointer ${
+                          draggedBlockId === block.id ? "opacity-30" : ""
+                        } ${
+                          selectedBlock === block.id
+                            ? "ring-2 ring-primary shadow-sm"
+                            : "hover:ring-1 hover:ring-border"
+                        }`}
                       >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
+                        {/* Drag handle */}
+                        <div className="absolute -left-7 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing">
+                          <div className="bg-card border rounded-md p-0.5 shadow-sm">
+                            <GripVertical className="w-4 h-4 text-muted-foreground" />
+                          </div>
+                        </div>
+
+                        {renderBlock(block)}
+
+                        {/* Delete button */}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); removeBlock(block.id); }}
+                          className="absolute -right-3 -top-3 w-6 h-6 rounded-full bg-destructive text-destructive-foreground items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity hidden group-hover:flex"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
                   ))}
-                  {blocks.length === 0 && (
-                    <div className="py-20 text-center text-muted-foreground">
-                      <p className="text-sm">Agrega bloques desde el panel izquierdo para diseñar tu email</p>
+
+                  {/* Drop indicator at the end */}
+                  {dropIndex === blocks.length && blocks.length > 0 && <DropIndicator />}
+
+                  {/* Empty drop zone hint when dragging */}
+                  {blocks.length === 0 && (draggedNewType || draggedBlockId) && (
+                    <div className="py-16 text-center text-primary border-2 border-primary/30 border-dashed rounded-xl bg-primary/5">
+                      <p className="text-sm font-medium">Suelta aquí para agregar</p>
                     </div>
                   )}
                 </div>
