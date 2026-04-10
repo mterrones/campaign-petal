@@ -7,7 +7,7 @@ import {
   Settings,
   Key,
 } from "lucide-react";
-import logoImg from "@/assets/enviamas-logo.png";
+import logoImg from "@/assets/enviamas-logo-full.png";
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
@@ -27,11 +27,8 @@ const AppSidebar = ({ onNavigate }: AppSidebarProps) => {
   return (
     <aside className="md:fixed md:left-0 md:top-0 h-screen w-64 bg-[hsl(var(--sidebar-bg))] md:border-r border-[hsl(var(--sidebar-border))] flex flex-col z-50">
       {/* Logo */}
-      <div className="p-5 flex items-center gap-3">
-        <img src={logoImg} alt="EnviaMas" className="w-10 h-10 rounded-xl" />
-        <span className="text-xl font-extrabold tracking-tight text-primary">
-          EnviaMas
-        </span>
+      <div className="px-5 py-4">
+        <img src={logoImg} alt="EnviaMas" className="h-8 w-auto" />
       </div>
 
       {/* Nav */}
