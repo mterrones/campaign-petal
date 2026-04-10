@@ -164,6 +164,7 @@ function renderBlockProps(block: { type: string; content: Record<string, string>
             <Label className="text-xs">Texto</Label>
             <Input value={c.text} onChange={e => u("text", e.target.value)} className="mt-1 h-8 text-xs" />
           </div>
+          <VariableButtons onInsert={v => u("text", (c.text || "") + v)} />
           <div>
             <Label className="text-xs">Nivel</Label>
             <Select value={c.level || "h1"} onValueChange={v => u("level", v)}>
