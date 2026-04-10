@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Save, Send, GripVertical, Trash2, Copy, Undo2, Redo2, Download, Monitor, Smartphone, Settings, Code } from "lucide-react";
+import { ArrowLeft, Save, Send, GripVertical, Trash2, Copy, Undo2, Redo2, Download, Monitor, Smartphone, Settings, Code, PanelRight, LayoutGrid } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 import { useEmailEditor } from "@/components/email-editor/useEmailEditor";
 import { BlockSidebar } from "@/components/email-editor/BlockSidebar";
@@ -19,8 +21,11 @@ import { exportHtml } from "@/components/email-editor/htmlExport";
 
 const EmailEditor = () => {
   const editor = useEmailEditor();
+  const isMobile = useIsMobile();
   const [htmlCode, setHtmlCode] = useState("");
   const [htmlDirty, setHtmlDirty] = useState(false);
+  const [showBlocks, setShowBlocks] = useState(false);
+  const [showProps, setShowProps] = useState(false);
 
   const selectedBlockData = editor.blocks.find(b => b.id === editor.selectedBlock) || null;
   const selectedInnerData = editor.selectedInner
@@ -91,36 +96,70 @@ const EmailEditor = () => {
   return (
     <div className="space-y-3">
       {/* Top bar */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           <Link to="/campaigns">
-            <Button variant="ghost" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
+            <Button variant="ghost" size="icon" className="shrink-0"><ArrowLeft className="w-4 h-4" /></Button>
           </Link>
           <Input
             value={editor.previewName}
             onChange={e => editor.setPreviewName(e.target.value)}
-            className="text-lg font-bold border-none shadow-none p-0 h-auto focus-visible:ring-0 w-64"
+            className="text-base sm:text-lg font-bold border-none shadow-none p-0 h-auto focus-visible:ring-0 w-full max-w-[200px] sm:max-w-[300px]"
             placeholder="Nombre de la campaña"
           />
         </div>
-        <div className="flex gap-1.5 items-center">
-          <Button variant="ghost" size="icon" onClick={editor.undo} disabled={!editor.canUndo} title="Deshacer (Ctrl+Z)">
+        <div className="flex gap-1 items-center shrink-0">
+          <Button variant="ghost" size="icon" onClick={editor.undo} disabled={!editor.canUndo} title="Deshacer">
             <Undo2 className="w-4 h-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={editor.redo} disabled={!editor.canRedo} title="Rehacer (Ctrl+Y)">
+          <Button variant="ghost" size="icon" onClick={editor.redo} disabled={!editor.canRedo} title="Rehacer">
             <Redo2 className="w-4 h-4" />
           </Button>
-          <div className="w-px h-6 bg-border mx-1" />
-          <Button variant="outline" size="sm" onClick={handleCopyHtml}><Copy className="w-3.5 h-3.5 mr-1.5" />Copiar HTML</Button>
-          <Button variant="outline" size="sm" onClick={handleExportHtml}><Download className="w-3.5 h-3.5 mr-1.5" />Exportar</Button>
-          <Button variant="outline" size="sm"><Save className="w-3.5 h-3.5 mr-1.5" />Guardar</Button>
-          <Button size="sm"><Send className="w-3.5 h-3.5 mr-1.5" />Enviar</Button>
+          {isMobile && (
+            <>
+              <Button variant="ghost" size="icon" onClick={() => setShowBlocks(true)} title="Bloques">
+                <LayoutGrid className="w-4 h-4" />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => setShowProps(true)} title="Propiedades">
+                <PanelRight className="w-4 h-4" />
+              </Button>
+            </>
+          )}
+          <div className="hidden sm:flex gap-1.5 items-center">
+            <div className="w-px h-6 bg-border mx-1" />
+            <Button variant="outline" size="sm" onClick={handleCopyHtml}><Copy className="w-3.5 h-3.5 mr-1.5" />Copiar HTML</Button>
+            <Button variant="outline" size="sm" onClick={handleExportHtml}><Download className="w-3.5 h-3.5 mr-1.5" />Exportar</Button>
+            <Button variant="outline" size="sm"><Save className="w-3.5 h-3.5 mr-1.5" />Guardar</Button>
+            <Button size="sm"><Send className="w-3.5 h-3.5 mr-1.5" />Enviar</Button>
+          </div>
         </div>
       </div>
 
+      {/* Mobile action buttons */}
+      {isMobile && (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          <Button variant="outline" size="sm" onClick={handleCopyHtml}><Copy className="w-3.5 h-3.5 mr-1" />Copiar</Button>
+          <Button variant="outline" size="sm" onClick={handleExportHtml}><Download className="w-3.5 h-3.5 mr-1" />Exportar</Button>
+          <Button variant="outline" size="sm"><Save className="w-3.5 h-3.5 mr-1" />Guardar</Button>
+          <Button size="sm"><Send className="w-3.5 h-3.5 mr-1" />Enviar</Button>
+        </div>
+      )}
+
       <div className="flex gap-3 items-start">
-        {/* Sidebar blocks */}
-        <BlockSidebar onDragStart={editor.handleSidebarDragStart} onDragEnd={editor.resetDragState} />
+        {/* Sidebar blocks - desktop */}
+        {!isMobile && (
+          <BlockSidebar onDragStart={editor.handleSidebarDragStart} onDragEnd={editor.resetDragState} />
+        )}
+
+        {/* Mobile blocks drawer */}
+        {isMobile && (
+          <Sheet open={showBlocks} onOpenChange={setShowBlocks}>
+            <SheetContent side="left" className="w-[140px] p-3">
+              <SheetTitle className="sr-only">Bloques</SheetTitle>
+              <BlockSidebar onDragStart={editor.handleSidebarDragStart} onDragEnd={editor.resetDragState} />
+            </SheetContent>
+          </Sheet>
+        )}
 
         {/* Main area */}
         <div className="flex-1 min-w-0">
@@ -327,17 +366,49 @@ const EmailEditor = () => {
           </Tabs>
         </div>
 
-        {/* Right panel */}
-        <div className="w-72 sticky top-8">
-          <ScrollArea className="h-[calc(100vh-120px)]">
-            <Tabs defaultValue="properties">
-              <TabsList className="w-full mb-3">
-                <TabsTrigger value="properties" className="flex-1 text-xs">Propiedades</TabsTrigger>
-                <TabsTrigger value="global" className="flex-1 text-xs"><Settings className="w-3 h-3 mr-1" />Global</TabsTrigger>
-              </TabsList>
-              <TabsContent value="properties">
-                <div className="bg-card rounded-xl border shadow-sm p-4">
-                  <h3 className="font-semibold text-sm mb-4">Propiedades</h3>
+        {/* Right panel - desktop */}
+        {!isMobile && (
+          <div className="w-72 sticky top-8">
+            <ScrollArea className="h-[calc(100vh-120px)]">
+              <Tabs defaultValue="properties">
+                <TabsList className="w-full mb-3">
+                  <TabsTrigger value="properties" className="flex-1 text-xs">Propiedades</TabsTrigger>
+                  <TabsTrigger value="global" className="flex-1 text-xs"><Settings className="w-3 h-3 mr-1" />Global</TabsTrigger>
+                </TabsList>
+                <TabsContent value="properties">
+                  <div className="bg-card rounded-xl border shadow-sm p-4">
+                    <h3 className="font-semibold text-sm mb-4">Propiedades</h3>
+                    <PropertiesPanel
+                      selectedBlock={selectedBlockData}
+                      selectedInnerData={selectedInnerData || null}
+                      selectedInner={editor.selectedInner}
+                      onUpdateBlock={editor.updateBlock}
+                      onUpdateInnerBlock={editor.updateInnerBlock}
+                      onChangeColumnLayout={editor.changeColumnLayout}
+                    />
+                  </div>
+                </TabsContent>
+                <TabsContent value="global">
+                  <div className="bg-card rounded-xl border shadow-sm p-4">
+                    <GlobalStyles styles={editor.globalStyles} onChange={editor.setGlobalStyles} />
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </ScrollArea>
+          </div>
+        )}
+
+        {/* Mobile properties drawer */}
+        {isMobile && (
+          <Sheet open={showProps} onOpenChange={setShowProps}>
+            <SheetContent side="right" className="w-[320px] p-4 overflow-y-auto">
+              <SheetTitle className="text-sm font-semibold mb-3">Propiedades</SheetTitle>
+              <Tabs defaultValue="properties">
+                <TabsList className="w-full mb-3">
+                  <TabsTrigger value="properties" className="flex-1 text-xs">Propiedades</TabsTrigger>
+                  <TabsTrigger value="global" className="flex-1 text-xs"><Settings className="w-3 h-3 mr-1" />Global</TabsTrigger>
+                </TabsList>
+                <TabsContent value="properties">
                   <PropertiesPanel
                     selectedBlock={selectedBlockData}
                     selectedInnerData={selectedInnerData || null}
@@ -346,16 +417,14 @@ const EmailEditor = () => {
                     onUpdateInnerBlock={editor.updateInnerBlock}
                     onChangeColumnLayout={editor.changeColumnLayout}
                   />
-                </div>
-              </TabsContent>
-              <TabsContent value="global">
-                <div className="bg-card rounded-xl border shadow-sm p-4">
+                </TabsContent>
+                <TabsContent value="global">
                   <GlobalStyles styles={editor.globalStyles} onChange={editor.setGlobalStyles} />
-                </div>
-              </TabsContent>
-            </Tabs>
-          </ScrollArea>
-        </div>
+                </TabsContent>
+              </Tabs>
+            </SheetContent>
+          </Sheet>
+        )}
       </div>
     </div>
   );

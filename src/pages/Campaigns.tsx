@@ -15,13 +15,13 @@ const Campaigns = () => {
   const navigate = useNavigate();
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Campañas</h1>
-          <p className="text-muted-foreground mt-1">Gestiona y monitorea tus campañas de email</p>
+          <h1 className="text-xl sm:text-2xl font-bold">Campañas</h1>
+          <p className="text-muted-foreground text-sm mt-1">Gestiona y monitorea tus campañas de email</p>
         </div>
         <Link to="/campaigns/new">
-          <Button>
+          <Button className="w-full sm:w-auto">
             <Plus className="w-4 h-4 mr-2" /> Nueva Campaña
           </Button>
         </Link>
@@ -37,7 +37,29 @@ const Campaigns = () => {
         </Button>
       </div>
 
-      <div className="bg-card rounded-xl border shadow-sm overflow-hidden">
+      {/* Mobile cards */}
+      <div className="md:hidden space-y-3">
+        {campaigns.map((c) => (
+          <Link key={c.id} to={`/reports/${c.id}`} className="block bg-card rounded-xl border shadow-sm p-4 hover:shadow-md transition-shadow">
+            <div className="flex items-start justify-between mb-2">
+              <div className="min-w-0 flex-1">
+                <p className="font-medium text-sm truncate">{c.name}</p>
+                <p className="text-xs text-muted-foreground truncate">{c.subject}</p>
+              </div>
+              <CampaignStatusBadge status={c.status} />
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground mt-3">
+              <div><span className="block text-foreground font-semibold">{c.recipients.toLocaleString()}</span>Dest.</div>
+              <div><span className="block text-foreground font-semibold">{c.opened.toLocaleString()}</span>Abiertos</div>
+              <div><span className="block text-foreground font-semibold">{c.clicked.toLocaleString()}</span>Clicks</div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">{c.sentAt || c.scheduledAt || c.createdAt}</p>
+          </Link>
+        ))}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden md:block bg-card rounded-xl border shadow-sm overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
