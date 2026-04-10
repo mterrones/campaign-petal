@@ -96,32 +96,54 @@ const EmailEditor = () => {
   return (
     <div className="space-y-3">
       {/* Top bar */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           <Link to="/campaigns">
-            <Button variant="ghost" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
+            <Button variant="ghost" size="icon" className="shrink-0"><ArrowLeft className="w-4 h-4" /></Button>
           </Link>
           <Input
             value={editor.previewName}
             onChange={e => editor.setPreviewName(e.target.value)}
-            className="text-lg font-bold border-none shadow-none p-0 h-auto focus-visible:ring-0 w-64"
+            className="text-base sm:text-lg font-bold border-none shadow-none p-0 h-auto focus-visible:ring-0 w-full max-w-[200px] sm:max-w-[300px]"
             placeholder="Nombre de la campaña"
           />
         </div>
-        <div className="flex gap-1.5 items-center">
-          <Button variant="ghost" size="icon" onClick={editor.undo} disabled={!editor.canUndo} title="Deshacer (Ctrl+Z)">
+        <div className="flex gap-1 items-center shrink-0">
+          <Button variant="ghost" size="icon" onClick={editor.undo} disabled={!editor.canUndo} title="Deshacer">
             <Undo2 className="w-4 h-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={editor.redo} disabled={!editor.canRedo} title="Rehacer (Ctrl+Y)">
+          <Button variant="ghost" size="icon" onClick={editor.redo} disabled={!editor.canRedo} title="Rehacer">
             <Redo2 className="w-4 h-4" />
           </Button>
-          <div className="w-px h-6 bg-border mx-1" />
-          <Button variant="outline" size="sm" onClick={handleCopyHtml}><Copy className="w-3.5 h-3.5 mr-1.5" />Copiar HTML</Button>
-          <Button variant="outline" size="sm" onClick={handleExportHtml}><Download className="w-3.5 h-3.5 mr-1.5" />Exportar</Button>
-          <Button variant="outline" size="sm"><Save className="w-3.5 h-3.5 mr-1.5" />Guardar</Button>
-          <Button size="sm"><Send className="w-3.5 h-3.5 mr-1.5" />Enviar</Button>
+          {isMobile && (
+            <>
+              <Button variant="ghost" size="icon" onClick={() => setShowBlocks(true)} title="Bloques">
+                <LayoutGrid className="w-4 h-4" />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => setShowProps(true)} title="Propiedades">
+                <PanelRight className="w-4 h-4" />
+              </Button>
+            </>
+          )}
+          <div className="hidden sm:flex gap-1.5 items-center">
+            <div className="w-px h-6 bg-border mx-1" />
+            <Button variant="outline" size="sm" onClick={handleCopyHtml}><Copy className="w-3.5 h-3.5 mr-1.5" />Copiar HTML</Button>
+            <Button variant="outline" size="sm" onClick={handleExportHtml}><Download className="w-3.5 h-3.5 mr-1.5" />Exportar</Button>
+            <Button variant="outline" size="sm"><Save className="w-3.5 h-3.5 mr-1.5" />Guardar</Button>
+            <Button size="sm"><Send className="w-3.5 h-3.5 mr-1.5" />Enviar</Button>
+          </div>
         </div>
       </div>
+
+      {/* Mobile action buttons */}
+      {isMobile && (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          <Button variant="outline" size="sm" onClick={handleCopyHtml}><Copy className="w-3.5 h-3.5 mr-1" />Copiar</Button>
+          <Button variant="outline" size="sm" onClick={handleExportHtml}><Download className="w-3.5 h-3.5 mr-1" />Exportar</Button>
+          <Button variant="outline" size="sm"><Save className="w-3.5 h-3.5 mr-1" />Guardar</Button>
+          <Button size="sm"><Send className="w-3.5 h-3.5 mr-1" />Enviar</Button>
+        </div>
+      )}
 
       <div className="flex gap-3 items-start">
         {/* Sidebar blocks */}
