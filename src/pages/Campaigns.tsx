@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Plus, Search, Filter, MoreHorizontal } from "lucide-react";
 import { campaigns } from "@/data/mockData";
 import CampaignStatusBadge from "@/components/CampaignStatusBadge";
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const Campaigns = () => {
+  const navigate = useNavigate();
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -77,7 +78,7 @@ const Campaigns = () => {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem>Ver reporte</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => navigate(`/reports/${c.id}`)}>Ver reporte</DropdownMenuItem>
                       <DropdownMenuItem>Duplicar</DropdownMenuItem>
                       <DropdownMenuItem className="text-destructive">Eliminar</DropdownMenuItem>
                     </DropdownMenuContent>
