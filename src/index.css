@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -45,19 +45,19 @@
 
     --radius: 0.75rem;
 
-    --sidebar-bg: 20 22% 10%;
-    --sidebar-fg: 30 20% 95%;
-    --sidebar-muted: 20 10% 52%;
+    --sidebar-bg: 30 40% 98%;
+    --sidebar-fg: 20 20% 18%;
+    --sidebar-muted: 20 10% 50%;
     --sidebar-active: 28 90% 55%;
-    --sidebar-hover: 20 18% 16%;
+    --sidebar-hover: 28 60% 95%;
 
-    --sidebar-background: 20 22% 10%;
-    --sidebar-foreground: 30 20% 95%;
+    --sidebar-background: 30 40% 98%;
+    --sidebar-foreground: 20 20% 18%;
     --sidebar-primary: 28 90% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 20 18% 16%;
-    --sidebar-accent-foreground: 30 20% 95%;
-    --sidebar-border: 20 18% 16%;
+    --sidebar-accent: 28 60% 95%;
+    --sidebar-accent-foreground: 20 20% 18%;
+    --sidebar-border: 30 20% 92%;
     --sidebar-ring: 28 90% 55%;
 
     --chart-1: 28 90% 55%;
@@ -104,7 +104,7 @@
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Plus Jakarta Sans', sans-serif;
   }
 }
 
@@ -116,7 +116,7 @@
     @apply flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200;
   }
   .sidebar-link-active {
-    @apply bg-[hsl(var(--sidebar-active))] text-[hsl(var(--sidebar-fg))] shadow-lg shadow-[hsl(var(--sidebar-active)/0.3)];
+    @apply bg-primary text-primary-foreground shadow-md shadow-primary/20;
   }
   .sidebar-link-inactive {
     @apply text-[hsl(var(--sidebar-muted))] hover:bg-[hsl(var(--sidebar-hover))] hover:text-[hsl(var(--sidebar-fg))];
