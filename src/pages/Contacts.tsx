@@ -231,7 +231,6 @@ const Contacts = () => {
             <UserPlus className="w-4 h-4 mr-2" /> Agregar Contactos
           </Button>
         </div>
-        </div>
       </div>
 
       {/* Stats */}
