@@ -14,6 +14,7 @@ const navItems = [
   { to: "/campaigns", icon: Send, label: "Campañas" },
   { to: "/contacts", icon: Users, label: "Contactos" },
   { to: "/reports", icon: BarChart3, label: "Reportes" },
+  { to: "/api-keys", icon: Key, label: "API Keys" },
 ];
 
 interface AppSidebarProps {
