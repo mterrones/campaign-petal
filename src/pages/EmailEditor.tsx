@@ -146,8 +146,20 @@ const EmailEditor = () => {
       )}
 
       <div className="flex gap-3 items-start">
-        {/* Sidebar blocks */}
-        <BlockSidebar onDragStart={editor.handleSidebarDragStart} onDragEnd={editor.resetDragState} />
+        {/* Sidebar blocks - desktop */}
+        {!isMobile && (
+          <BlockSidebar onDragStart={editor.handleSidebarDragStart} onDragEnd={editor.resetDragState} />
+        )}
+
+        {/* Mobile blocks drawer */}
+        {isMobile && (
+          <Sheet open={showBlocks} onOpenChange={setShowBlocks}>
+            <SheetContent side="left" className="w-[140px] p-3">
+              <SheetTitle className="sr-only">Bloques</SheetTitle>
+              <BlockSidebar onDragStart={editor.handleSidebarDragStart} onDragEnd={editor.resetDragState} />
+            </SheetContent>
+          </Sheet>
+        )}
 
         {/* Main area */}
         <div className="flex-1 min-w-0">
@@ -354,17 +366,49 @@ const EmailEditor = () => {
           </Tabs>
         </div>
 
-        {/* Right panel */}
-        <div className="w-72 sticky top-8">
-          <ScrollArea className="h-[calc(100vh-120px)]">
-            <Tabs defaultValue="properties">
-              <TabsList className="w-full mb-3">
-                <TabsTrigger value="properties" className="flex-1 text-xs">Propiedades</TabsTrigger>
-                <TabsTrigger value="global" className="flex-1 text-xs"><Settings className="w-3 h-3 mr-1" />Global</TabsTrigger>
-              </TabsList>
-              <TabsContent value="properties">
-                <div className="bg-card rounded-xl border shadow-sm p-4">
-                  <h3 className="font-semibold text-sm mb-4">Propiedades</h3>
+        {/* Right panel - desktop */}
+        {!isMobile && (
+          <div className="w-72 sticky top-8">
+            <ScrollArea className="h-[calc(100vh-120px)]">
+              <Tabs defaultValue="properties">
+                <TabsList className="w-full mb-3">
+                  <TabsTrigger value="properties" className="flex-1 text-xs">Propiedades</TabsTrigger>
+                  <TabsTrigger value="global" className="flex-1 text-xs"><Settings className="w-3 h-3 mr-1" />Global</TabsTrigger>
+                </TabsList>
+                <TabsContent value="properties">
+                  <div className="bg-card rounded-xl border shadow-sm p-4">
+                    <h3 className="font-semibold text-sm mb-4">Propiedades</h3>
+                    <PropertiesPanel
+                      selectedBlock={selectedBlockData}
+                      selectedInnerData={selectedInnerData || null}
+                      selectedInner={editor.selectedInner}
+                      onUpdateBlock={editor.updateBlock}
+                      onUpdateInnerBlock={editor.updateInnerBlock}
+                      onChangeColumnLayout={editor.changeColumnLayout}
+                    />
+                  </div>
+                </TabsContent>
+                <TabsContent value="global">
+                  <div className="bg-card rounded-xl border shadow-sm p-4">
+                    <GlobalStyles styles={editor.globalStyles} onChange={editor.setGlobalStyles} />
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </ScrollArea>
+          </div>
+        )}
+
+        {/* Mobile properties drawer */}
+        {isMobile && (
+          <Sheet open={showProps} onOpenChange={setShowProps}>
+            <SheetContent side="right" className="w-[320px] p-4 overflow-y-auto">
+              <SheetTitle className="text-sm font-semibold mb-3">Propiedades</SheetTitle>
+              <Tabs defaultValue="properties">
+                <TabsList className="w-full mb-3">
+                  <TabsTrigger value="properties" className="flex-1 text-xs">Propiedades</TabsTrigger>
+                  <TabsTrigger value="global" className="flex-1 text-xs"><Settings className="w-3 h-3 mr-1" />Global</TabsTrigger>
+                </TabsList>
+                <TabsContent value="properties">
                   <PropertiesPanel
                     selectedBlock={selectedBlockData}
                     selectedInnerData={selectedInnerData || null}
@@ -373,16 +417,14 @@ const EmailEditor = () => {
                     onUpdateInnerBlock={editor.updateInnerBlock}
                     onChangeColumnLayout={editor.changeColumnLayout}
                   />
-                </div>
-              </TabsContent>
-              <TabsContent value="global">
-                <div className="bg-card rounded-xl border shadow-sm p-4">
+                </TabsContent>
+                <TabsContent value="global">
                   <GlobalStyles styles={editor.globalStyles} onChange={editor.setGlobalStyles} />
-                </div>
-              </TabsContent>
-            </Tabs>
-          </ScrollArea>
-        </div>
+                </TabsContent>
+              </Tabs>
+            </SheetContent>
+          </Sheet>
+        )}
       </div>
     </div>
   );
