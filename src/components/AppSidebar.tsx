@@ -24,8 +24,8 @@ const AppSidebar = () => {
       {/* Logo */}
       <div className="p-5 flex items-center gap-3">
         <img src={logoImg} alt="EnviaMas" className="w-10 h-10 rounded-xl" />
-        <span className="text-xl font-extrabold tracking-tight text-[hsl(var(--sidebar-fg))]">
-          Envía<span className="text-primary">Mas</span>
+        <span className="text-xl font-extrabold tracking-tight text-primary">
+          EnviaMas
         </span>
       </div>
 
