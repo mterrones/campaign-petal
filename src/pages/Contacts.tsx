@@ -51,9 +51,11 @@ const Contacts = () => {
   // Bulk delete
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
-  // New contact dialog
-  const [newContactOpen, setNewContactOpen] = useState(false);
+  // Add contact flow: "choose" | "manual" | "excel"
+  const [addMode, setAddMode] = useState<"choose" | "manual" | "excel" | null>(null);
   const [newContact, setNewContact] = useState({ name: "", lastName: "", email: "", tags: "" });
+  const [excelPreview, setExcelPreview] = useState<Contact[]>([]);
+  const [excelFileName, setExcelFileName] = useState("");
 
   const dirCounts = useMemo(() => {
     const map: Record<string, number> = {};
