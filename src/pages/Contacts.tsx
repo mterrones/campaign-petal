@@ -500,34 +500,127 @@ const Contacts = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Dialog: New contact */}
-      <Dialog open={newContactOpen} onOpenChange={setNewContactOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Nuevo Contacto</DialogTitle></DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Nombre</Label>
-                <Input placeholder="Nombre" className="mt-1.5" value={newContact.name} onChange={(e) => setNewContact((p) => ({ ...p, name: e.target.value }))} />
+      {/* Dialog: Add contacts (choose → manual / excel) */}
+      <Dialog open={addMode !== null} onOpenChange={(o) => { if (!o) { setAddMode(null); setExcelPreview([]); setExcelFileName(""); } }}>
+        <DialogContent className="sm:max-w-lg">
+          {addMode === "choose" && (
+            <>
+              <DialogHeader><DialogTitle>Agregar Contactos</DialogTitle></DialogHeader>
+              <p className="text-sm text-muted-foreground">¿Cómo deseas agregar contactos?</p>
+              <div className="grid grid-cols-2 gap-4 py-4">
+                <button
+                  onClick={() => setAddMode("manual")}
+                  className="flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-border hover:border-primary/50 hover:bg-primary/5 transition-all"
+                >
+                  <UserPlus className="w-8 h-8 text-primary" />
+                  <span className="font-medium text-sm">Manual</span>
+                  <span className="text-xs text-muted-foreground text-center">Ingresa los datos de un contacto</span>
+                </button>
+                <button
+                  onClick={() => setAddMode("excel")}
+                  className="flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-border hover:border-primary/50 hover:bg-primary/5 transition-all"
+                >
+                  <FileSpreadsheet className="w-8 h-8 text-primary" />
+                  <span className="font-medium text-sm">Importar Excel / CSV</span>
+                  <span className="text-xs text-muted-foreground text-center">Sube un archivo con tus contactos</span>
+                </button>
               </div>
-              <div>
-                <Label>Apellido</Label>
-                <Input placeholder="Apellido" className="mt-1.5" value={newContact.lastName} onChange={(e) => setNewContact((p) => ({ ...p, lastName: e.target.value }))} />
+            </>
+          )}
+
+          {addMode === "manual" && (
+            <>
+              <DialogHeader><DialogTitle>Nuevo Contacto</DialogTitle></DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Nombre</Label>
+                    <Input placeholder="Nombre" className="mt-1.5" value={newContact.name} onChange={(e) => setNewContact((p) => ({ ...p, name: e.target.value }))} />
+                  </div>
+                  <div>
+                    <Label>Apellido</Label>
+                    <Input placeholder="Apellido" className="mt-1.5" value={newContact.lastName} onChange={(e) => setNewContact((p) => ({ ...p, lastName: e.target.value }))} />
+                  </div>
+                </div>
+                <div>
+                  <Label>Email</Label>
+                  <Input placeholder="email@ejemplo.com" type="email" className="mt-1.5" value={newContact.email} onChange={(e) => setNewContact((p) => ({ ...p, email: e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Etiquetas</Label>
+                  <Input placeholder="VIP, Newsletter (separar con comas)" className="mt-1.5" value={newContact.tags} onChange={(e) => setNewContact((p) => ({ ...p, tags: e.target.value }))} />
+                </div>
               </div>
-            </div>
-            <div>
-              <Label>Email</Label>
-              <Input placeholder="email@ejemplo.com" type="email" className="mt-1.5" value={newContact.email} onChange={(e) => setNewContact((p) => ({ ...p, email: e.target.value }))} />
-            </div>
-            <div>
-              <Label>Etiquetas</Label>
-              <Input placeholder="VIP, Newsletter (separar con comas)" className="mt-1.5" value={newContact.tags} onChange={(e) => setNewContact((p) => ({ ...p, tags: e.target.value }))} />
-            </div>
-          </div>
-          <DialogFooter>
-            <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
-            <Button onClick={handleAddContact}>Guardar Contacto</Button>
-          </DialogFooter>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setAddMode("choose")}>Atrás</Button>
+                <Button onClick={handleAddContact}>Guardar Contacto</Button>
+              </DialogFooter>
+            </>
+          )}
+
+          {addMode === "excel" && (
+            <>
+              <DialogHeader><DialogTitle>Importar desde Excel / CSV</DialogTitle></DialogHeader>
+              {excelPreview.length === 0 ? (
+                <div className="py-6">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Sube un archivo <strong>.csv</strong> o <strong>.txt</strong> con columnas: Email, Nombre, Apellido, Etiquetas (separadas por |).
+                  </p>
+                  <div className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-primary/40 transition-colors">
+                    <Upload className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
+                    <p className="text-sm font-medium mb-1">Arrastra tu archivo aquí o haz clic</p>
+                    <p className="text-xs text-muted-foreground mb-3">CSV, TXT (separado por comas, punto y coma o tabulaciones)</p>
+                    <Input
+                      type="file"
+                      accept=".csv,.txt,.tsv"
+                      className="max-w-xs mx-auto"
+                      onChange={handleExcelUpload}
+                    />
+                  </div>
+                  <DialogFooter className="mt-4">
+                    <Button variant="outline" onClick={() => setAddMode("choose")}>Atrás</Button>
+                  </DialogFooter>
+                </div>
+              ) : (
+                <div className="py-2">
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Se encontraron <strong>{excelPreview.length}</strong> contactos en "{excelFileName}":
+                  </p>
+                  <div className="max-h-60 overflow-y-auto border rounded-lg">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Email</TableHead>
+                          <TableHead>Nombre</TableHead>
+                          <TableHead>Etiquetas</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {excelPreview.slice(0, 50).map((c) => (
+                          <TableRow key={c.id}>
+                            <TableCell className="text-xs">{c.email}</TableCell>
+                            <TableCell className="text-xs">{c.name} {c.lastName}</TableCell>
+                            <TableCell className="text-xs">{c.tags.join(", ")}</TableCell>
+                          </TableRow>
+                        ))}
+                        {excelPreview.length > 50 && (
+                          <TableRow>
+                            <TableCell colSpan={3} className="text-center text-xs text-muted-foreground">
+                              ...y {excelPreview.length - 50} más
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  <DialogFooter className="mt-4">
+                    <Button variant="outline" onClick={() => { setExcelPreview([]); setExcelFileName(""); }}>Cambiar archivo</Button>
+                    <Button onClick={handleImportExcel}>Importar {excelPreview.length} contacto(s)</Button>
+                  </DialogFooter>
+                </div>
+              )}
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>
