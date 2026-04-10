@@ -1,4 +1,4 @@
-import { Send, Users, MousePointerClick, Eye, TrendingUp, ArrowUpRight } from "lucide-react";
+import { Send, Users, MousePointerClick, Eye, ArrowUpRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import StatCard from "@/components/StatCard";
 import CampaignStatusBadge from "@/components/CampaignStatusBadge";
@@ -21,7 +21,7 @@ const Dashboard = () => {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground mt-1">Resumen de tu actividad de email marketing</p>
       </div>
 
@@ -47,7 +47,7 @@ const Dashboard = () => {
           change="+2.1% vs mes anterior"
           changeType="positive"
           icon={Eye}
-          iconColor="bg-warning/10 text-warning"
+          iconColor="bg-accent/10 text-accent"
         />
         <StatCard
           title="Tasa de Clicks"
@@ -63,7 +63,7 @@ const Dashboard = () => {
       <div className="stat-card">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-lg font-semibold">Rendimiento de Campañas</h2>
+            <h2 className="text-lg font-bold">Rendimiento de Campañas</h2>
             <p className="text-sm text-muted-foreground">Últimos 4 meses</p>
           </div>
           <div className="flex gap-4 text-xs">
@@ -76,26 +76,26 @@ const Dashboard = () => {
           <AreaChart data={chartData}>
             <defs>
               <linearGradient id="gEnviados" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="hsl(217, 91%, 60%)" stopOpacity={0.15} />
-                <stop offset="95%" stopColor="hsl(217, 91%, 60%)" stopOpacity={0} />
+                <stop offset="5%" stopColor="hsl(28, 90%, 55%)" stopOpacity={0.2} />
+                <stop offset="95%" stopColor="hsl(28, 90%, 55%)" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="gAbiertos" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0.15} />
-                <stop offset="95%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0} />
+                <stop offset="5%" stopColor="hsl(152, 60%, 42%)" stopOpacity={0.2} />
+                <stop offset="95%" stopColor="hsl(152, 60%, 42%)" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(214, 32%, 91%)" />
-            <XAxis dataKey="name" tick={{ fontSize: 12 }} stroke="hsl(215, 16%, 47%)" />
-            <YAxis tick={{ fontSize: 12 }} stroke="hsl(215, 16%, 47%)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(30, 15%, 90%)" />
+            <XAxis dataKey="name" tick={{ fontSize: 12 }} stroke="hsl(20, 10%, 46%)" />
+            <YAxis tick={{ fontSize: 12 }} stroke="hsl(20, 10%, 46%)" />
             <Tooltip
               contentStyle={{
                 borderRadius: "0.75rem",
-                border: "1px solid hsl(214, 32%, 91%)",
+                border: "1px solid hsl(30, 15%, 90%)",
                 fontSize: "12px",
               }}
             />
-            <Area type="monotone" dataKey="enviados" stroke="hsl(217, 91%, 60%)" fillOpacity={1} fill="url(#gEnviados)" strokeWidth={2} />
-            <Area type="monotone" dataKey="abiertos" stroke="hsl(142, 71%, 45%)" fillOpacity={1} fill="url(#gAbiertos)" strokeWidth={2} />
+            <Area type="monotone" dataKey="enviados" stroke="hsl(28, 90%, 55%)" fillOpacity={1} fill="url(#gEnviados)" strokeWidth={2} />
+            <Area type="monotone" dataKey="abiertos" stroke="hsl(152, 60%, 42%)" fillOpacity={1} fill="url(#gAbiertos)" strokeWidth={2} />
             <Area type="monotone" dataKey="clicks" stroke="hsl(199, 89%, 48%)" fillOpacity={0} strokeWidth={2} />
           </AreaChart>
         </ResponsiveContainer>
@@ -104,19 +104,19 @@ const Dashboard = () => {
       {/* Recent Campaigns */}
       <div className="stat-card">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-semibold">Campañas Recientes</h2>
-          <Link to="/campaigns" className="text-sm text-primary font-medium flex items-center gap-1 hover:underline">
+          <h2 className="text-lg font-bold">Campañas Recientes</h2>
+          <Link to="/campaigns" className="text-sm text-primary font-semibold flex items-center gap-1 hover:underline">
             Ver todas <ArrowUpRight className="w-3.5 h-3.5" />
           </Link>
         </div>
-        <div className="space-y-4">
+        <div className="space-y-3">
           {recentCampaigns.map((c) => {
             const deliveryRate = c.recipients > 0 ? Math.round((c.delivered / c.recipients) * 100) : 0;
             return (
-              <div key={c.id} className="flex items-center gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+              <div key={c.id} className="flex items-center gap-4 p-3 rounded-xl hover:bg-muted/50 transition-colors">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="font-medium text-sm truncate">{c.name}</p>
+                    <p className="font-semibold text-sm truncate">{c.name}</p>
                     <CampaignStatusBadge status={c.status} />
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5 truncate">{c.subject}</p>

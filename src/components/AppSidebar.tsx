@@ -4,10 +4,10 @@ import {
   Send,
   Users,
   BarChart3,
-  Mail,
   Settings,
   PlusCircle,
 } from "lucide-react";
+import logoImg from "@/assets/enviamas-logo.png";
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
@@ -21,25 +21,26 @@ const AppSidebar = () => {
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 bg-[hsl(var(--sidebar-bg))] flex flex-col z-50">
-      <div className="p-6 flex items-center gap-3">
-        <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
-          <Mail className="w-5 h-5 text-primary-foreground" />
-        </div>
-        <span className="text-lg font-bold text-[hsl(var(--sidebar-fg))]">
-          MailFlow
+      {/* Logo */}
+      <div className="p-5 flex items-center gap-3">
+        <img src={logoImg} alt="EnviaMas" className="w-10 h-10 rounded-xl" />
+        <span className="text-xl font-extrabold tracking-tight text-[hsl(var(--sidebar-fg))]">
+          Envía<span className="text-primary">Mas</span>
         </span>
       </div>
 
-      <div className="px-4 mb-4">
+      {/* CTA */}
+      <div className="px-4 mb-5">
         <NavLink
           to="/campaigns/new"
-          className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
+          className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-gradient-to-r from-primary to-accent text-primary-foreground text-sm font-semibold hover:opacity-90 transition-all shadow-lg shadow-primary/25"
         >
           <PlusCircle className="w-4 h-4" />
           Nueva Campaña
         </NavLink>
       </div>
 
+      {/* Nav */}
       <nav className="flex-1 px-3 space-y-1">
         {navItems.map((item) => {
           const isActive =
@@ -59,6 +60,7 @@ const AppSidebar = () => {
         })}
       </nav>
 
+      {/* Settings */}
       <div className="px-3 pb-6">
         <NavLink
           to="/settings"
