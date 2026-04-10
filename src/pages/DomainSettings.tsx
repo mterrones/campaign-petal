@@ -114,9 +114,9 @@ const DomainSettings = () => {
   const statusIcon = (status: DnsRecord["status"]) => {
     switch (status) {
       case "verified":
-        return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
+        return <CheckCircle2 className="w-4 h-4 text-primary" />;
       case "pending":
-        return <AlertTriangle className="w-4 h-4 text-amber-500" />;
+        return <AlertTriangle className="w-4 h-4 text-muted-foreground" />;
       case "error":
         return <AlertTriangle className="w-4 h-4 text-destructive" />;
     }
@@ -125,9 +125,9 @@ const DomainSettings = () => {
   const statusBadge = (status: DnsRecord["status"]) => {
     switch (status) {
       case "verified":
-        return <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20">Verificado</Badge>;
+        return <Badge className="bg-primary/10 text-primary border-primary/20">Verificado</Badge>;
       case "pending":
-        return <Badge variant="outline" className="text-amber-600 border-amber-500/30">Pendiente</Badge>;
+        return <Badge variant="outline" className="text-muted-foreground">Pendiente</Badge>;
       case "error":
         return <Badge variant="destructive">Error</Badge>;
     }
