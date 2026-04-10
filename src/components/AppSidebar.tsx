@@ -6,6 +6,7 @@ import {
   BarChart3,
   Settings,
   PlusCircle,
+  Key,
 } from "lucide-react";
 import logoImg from "@/assets/enviamas-logo.png";
 
