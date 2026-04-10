@@ -204,6 +204,7 @@ function renderBlockProps(block: { type: string; content: Record<string, string>
             <Label className="text-xs">Contenido</Label>
             <Textarea value={c.text} onChange={e => u("text", e.target.value)} className="mt-1 text-xs" rows={4} />
           </div>
+          <VariableButtons onInsert={v => u("text", (c.text || "") + v)} />
           <ColorInput label="Color" value={c.color || "#4a4a5a"} onChange={v => u("color", v)} />
           <div>
             <Label className="text-xs">Tamaño (px)</Label>
