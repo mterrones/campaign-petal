@@ -1,10 +1,12 @@
-import { ArrowLeft, Save, Send, GripVertical, Trash2, Copy, Undo2, Redo2, Download, Monitor, Smartphone, Settings } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ArrowLeft, Save, Send, GripVertical, Trash2, Copy, Undo2, Redo2, Download, Monitor, Smartphone, Settings, Code } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
 import { useEmailEditor } from "@/components/email-editor/useEmailEditor";
@@ -17,12 +19,36 @@ import { exportHtml } from "@/components/email-editor/htmlExport";
 
 const EmailEditor = () => {
   const editor = useEmailEditor();
+  const [htmlCode, setHtmlCode] = useState("");
+  const [htmlDirty, setHtmlDirty] = useState(false);
 
   const selectedBlockData = editor.blocks.find(b => b.id === editor.selectedBlock) || null;
   const selectedInnerData = editor.selectedInner
     ? editor.blocks.find(b => b.id === editor.selectedInner!.blockId)?.columns?.[editor.selectedInner!.colIndex]?.find(i => i.id === editor.selectedInner!.innerId) || null
     : null;
 
+  // Sync HTML code when switching to code tab
+  useEffect(() => {
+    if (editor.activeTab === "code") {
+      const html = exportHtml(editor.blocks, editor.globalStyles, editor.subject);
+      setHtmlCode(html);
+      setHtmlDirty(false);
+    }
+  }, [editor.activeTab]);
+
+  const handleApplyHtml = () => {
+    // Replace all blocks with a single HTML block containing the full code
+    const newBlock = {
+      id: Date.now().toString() + Math.random(),
+      type: "html" as const,
+      content: { code: htmlCode },
+    };
+    editor.setBlocks([newBlock]);
+    editor.setActiveTab("edit");
+    editor.setSelectedBlock(newBlock.id);
+    toast.success("HTML aplicado al editor");
+    setHtmlDirty(false);
+  };
   const handleExportHtml = () => {
     const html = exportHtml(editor.blocks, editor.globalStyles, editor.subject);
     const blob = new Blob([html], { type: "text/html" });
@@ -103,6 +129,7 @@ const EmailEditor = () => {
               <TabsList>
                 <TabsTrigger value="edit">Editar</TabsTrigger>
                 <TabsTrigger value="preview">Vista Previa</TabsTrigger>
+                <TabsTrigger value="code"><Code className="w-3.5 h-3.5 mr-1" />HTML</TabsTrigger>
               </TabsList>
               {editor.activeTab === "preview" && (
                 <div className="flex gap-1 bg-muted rounded-md p-0.5">
@@ -265,6 +292,36 @@ const EmailEditor = () => {
                     ))}
                   </div>
                 </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="code">
+              <div className="bg-card rounded-xl border shadow-sm overflow-hidden">
+                <div className="flex items-center justify-between bg-muted px-4 py-2 border-b">
+                  <span className="text-xs text-muted-foreground font-medium">Editor HTML</span>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => {
+                      navigator.clipboard.writeText(htmlCode);
+                      toast.success("HTML copiado");
+                    }}>
+                      <Copy className="w-3 h-3 mr-1" />Copiar
+                    </Button>
+                    <Button size="sm" className="h-7 text-xs" disabled={!htmlDirty} onClick={handleApplyHtml}>
+                      Aplicar cambios
+                    </Button>
+                  </div>
+                </div>
+                <Textarea
+                  value={htmlCode}
+                  onChange={e => { setHtmlCode(e.target.value); setHtmlDirty(true); }}
+                  className="font-mono text-xs border-0 rounded-none focus-visible:ring-0 min-h-[500px] resize-y"
+                  spellCheck={false}
+                />
+                {htmlDirty && (
+                  <div className="px-4 py-2 bg-accent/50 border-t text-xs text-muted-foreground">
+                    ⚠️ Has editado el HTML. Al aplicar, se reemplazarán todos los bloques con un bloque HTML único.
+                  </div>
+                )}
               </div>
             </TabsContent>
           </Tabs>
