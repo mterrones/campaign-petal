@@ -227,12 +227,10 @@ const Contacts = () => {
           <p className="text-muted-foreground mt-1">Gestiona tu base de datos de suscriptores</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">
-            <Upload className="w-4 h-4 mr-2" /> Importar Excel
+          <Button onClick={() => setAddMode("choose")}>
+            <UserPlus className="w-4 h-4 mr-2" /> Agregar Contactos
           </Button>
-          <Button onClick={() => setNewContactOpen(true)}>
-            <UserPlus className="w-4 h-4 mr-2" /> Agregar Contacto
-          </Button>
+        </div>
         </div>
       </div>
 
