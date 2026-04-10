@@ -12,7 +12,7 @@ interface BlockSidebarProps {
 
 export function BlockSidebar({ onDragStart, onDragEnd }: BlockSidebarProps) {
   return (
-    <div className="w-[100px] flex flex-col gap-2 sticky top-8">
+    <div className="w-[100px] flex flex-col gap-2 sticky top-8 max-h-[calc(100vh-120px)] overflow-y-auto pr-1">
       <p className="text-xs text-muted-foreground text-center font-medium uppercase tracking-wider mb-1">Bloques</p>
       {blockTypes.map((bt) => {
         const Icon = iconMap[bt.icon] || Type;
