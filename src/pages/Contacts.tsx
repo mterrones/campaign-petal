@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import {
   Search, Upload, UserPlus, MoreHorizontal, FolderPlus, Folder,
-  Trash2, ArrowRightLeft, CheckSquare, X, Pencil, Users, FileSpreadsheet, UserRoundPlus,
+  Trash2, ArrowRightLeft, CheckSquare, X, Pencil, Users, FileSpreadsheet,
 } from "lucide-react";
 import { contacts as initialContacts, defaultDirectories, type Contact, type ContactDirectory } from "@/data/mockData";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogDescription,
 } from "@/components/ui/dialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
