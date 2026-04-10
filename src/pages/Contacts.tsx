@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import {
   Search, Upload, UserPlus, MoreHorizontal, FolderPlus, Folder,
-  Trash2, ArrowRightLeft, CheckSquare, X, Pencil, Users,
+  Trash2, ArrowRightLeft, CheckSquare, X, Pencil, Users, FileSpreadsheet, UserRoundPlus,
 } from "lucide-react";
 import { contacts as initialContacts, defaultDirectories, type Contact, type ContactDirectory } from "@/data/mockData";
 import { Button } from "@/components/ui/button";
