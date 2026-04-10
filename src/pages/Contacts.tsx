@@ -302,8 +302,8 @@ const Contacts = () => {
 
         {/* Content */}
         <div className="flex-1 space-y-4 min-w-0">
-          {/* Search + bulk actions */}
-          <div className="flex gap-3 items-center">
+          {/* Search + Add button + bulk actions */}
+          <div className="flex gap-3 items-center justify-between">
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
@@ -314,23 +314,29 @@ const Contacts = () => {
               />
             </div>
 
-            {selectedIds.size > 0 && (
-              <div className="flex gap-2 items-center ml-auto">
-                <Badge variant="secondary" className="text-xs">
-                  <CheckSquare className="w-3.5 h-3.5 mr-1" />
-                  {selectedIds.size} seleccionados
-                </Badge>
-                <Button variant="outline" size="sm" onClick={() => setMoveDialogOpen(true)}>
-                  <ArrowRightLeft className="w-4 h-4 mr-1" /> Mover
-                </Button>
-                <Button variant="outline" size="sm" className="text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => setBulkDeleteOpen(true)}>
-                  <Trash2 className="w-4 h-4 mr-1" /> Eliminar
-                </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSelectedIds(new Set())}>
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-            )}
+            <div className="flex gap-2 items-center">
+              <Button onClick={() => setAddMode("choose")}>
+                <UserPlus className="w-4 h-4 mr-2" /> Agregar Contactos
+              </Button>
+
+              {selectedIds.size > 0 && (
+                <>
+                  <Badge variant="secondary" className="text-xs">
+                    <CheckSquare className="w-3.5 h-3.5 mr-1" />
+                    {selectedIds.size} seleccionados
+                  </Badge>
+                  <Button variant="outline" size="sm" onClick={() => setMoveDialogOpen(true)}>
+                    <ArrowRightLeft className="w-4 h-4 mr-1" /> Mover
+                  </Button>
+                  <Button variant="outline" size="sm" className="text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => setBulkDeleteOpen(true)}>
+                    <Trash2 className="w-4 h-4 mr-1" /> Eliminar
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSelectedIds(new Set())}>
+                    <X className="w-4 h-4" />
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Table */}
