@@ -11,6 +11,7 @@ import Contacts from "./pages/Contacts";
 import Reports from "./pages/Reports";
 import CampaignReport from "./pages/CampaignReport";
 import DomainSettings from "./pages/DomainSettings";
+import ApiKeys from "./pages/ApiKeys";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/reports" element={<Reports />} />
             <Route path="/reports/:id" element={<CampaignReport />} />
             <Route path="/settings" element={<DomainSettings />} />
+            <Route path="/api-keys" element={<ApiKeys />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
