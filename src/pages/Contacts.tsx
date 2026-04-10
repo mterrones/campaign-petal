@@ -154,8 +154,68 @@ const Contacts = () => {
     };
     setContactsList((list) => [...list, c]);
     setNewContact({ name: "", lastName: "", email: "", tags: "" });
-    setNewContactOpen(false);
+    setAddMode(null);
     toast({ title: "Contacto agregado" });
+  };
+
+  const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setExcelFileName(file.name);
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const text = evt.target?.result as string;
+        const lines = text.split("\n").filter((l) => l.trim());
+        if (lines.length < 2) {
+          toast({ title: "Archivo vacío", description: "El archivo no contiene datos.", variant: "destructive" });
+          return;
+        }
+
+        const headers = lines[0].split(/[,;\t]/).map((h) => h.trim().toLowerCase());
+        const emailIdx = headers.findIndex((h) => h.includes("email") || h.includes("correo"));
+        const nameIdx = headers.findIndex((h) => h === "nombre" || h === "name" || h === "first_name");
+        const lastNameIdx = headers.findIndex((h) => h.includes("apellido") || h === "last_name" || h === "lastname");
+        const tagsIdx = headers.findIndex((h) => h.includes("etiqueta") || h.includes("tag"));
+
+        if (emailIdx === -1) {
+          toast({ title: "Columna de email no encontrada", description: "El archivo debe tener una columna 'Email' o 'Correo'.", variant: "destructive" });
+          return;
+        }
+
+        const parsed: Contact[] = [];
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(/[,;\t]/).map((c) => c.trim().replace(/^"|"$/g, ""));
+          const email = cols[emailIdx];
+          if (!email || !email.includes("@")) continue;
+          parsed.push({
+            id: `import-${Date.now()}-${i}`,
+            email,
+            name: nameIdx >= 0 ? cols[nameIdx] || "" : "",
+            lastName: lastNameIdx >= 0 ? cols[lastNameIdx] || "" : "",
+            tags: tagsIdx >= 0 && cols[tagsIdx] ? cols[tagsIdx].split("|").map((t) => t.trim()).filter(Boolean) : [],
+            status: "active",
+            createdAt: new Date().toISOString().split("T")[0],
+            list: directories.find((d) => d.id === activeDir && d.id !== "all")?.name || "General",
+            directoryId: activeDir !== "all" ? activeDir : "general",
+          });
+        }
+        setExcelPreview(parsed);
+      } catch {
+        toast({ title: "Error al leer archivo", description: "No se pudo procesar el archivo.", variant: "destructive" });
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleImportExcel = () => {
+    if (excelPreview.length === 0) return;
+    setContactsList((list) => [...list, ...excelPreview]);
+    toast({ title: `${excelPreview.length} contacto(s) importados` });
+    setExcelPreview([]);
+    setExcelFileName("");
+    setAddMode(null);
   };
 
   return (
