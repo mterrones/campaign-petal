@@ -1,10 +1,12 @@
-import { ArrowLeft, Save, Send, GripVertical, Trash2, Copy, Undo2, Redo2, Download, Monitor, Smartphone, Settings } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ArrowLeft, Save, Send, GripVertical, Trash2, Copy, Undo2, Redo2, Download, Monitor, Smartphone, Settings, Code } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
 import { useEmailEditor } from "@/components/email-editor/useEmailEditor";
@@ -17,13 +19,36 @@ import { exportHtml } from "@/components/email-editor/htmlExport";
 
 const EmailEditor = () => {
   const editor = useEmailEditor();
+  const [htmlCode, setHtmlCode] = useState("");
+  const [htmlDirty, setHtmlDirty] = useState(false);
 
   const selectedBlockData = editor.blocks.find(b => b.id === editor.selectedBlock) || null;
   const selectedInnerData = editor.selectedInner
     ? editor.blocks.find(b => b.id === editor.selectedInner!.blockId)?.columns?.[editor.selectedInner!.colIndex]?.find(i => i.id === editor.selectedInner!.innerId) || null
     : null;
 
-  const handleExportHtml = () => {
+  // Sync HTML code when switching to code tab
+  useEffect(() => {
+    if (editor.activeTab === "code") {
+      const html = exportHtml(editor.blocks, editor.globalStyles, editor.subject);
+      setHtmlCode(html);
+      setHtmlDirty(false);
+    }
+  }, [editor.activeTab]);
+
+  const handleApplyHtml = () => {
+    // Replace all blocks with a single HTML block containing the full code
+    const newBlock = {
+      id: Date.now().toString() + Math.random(),
+      type: "html" as const,
+      content: { code: htmlCode },
+    };
+    editor.setBlocks([newBlock]);
+    editor.setActiveTab("edit");
+    editor.setSelectedBlock(newBlock.id);
+    toast.success("HTML aplicado al editor");
+    setHtmlDirty(false);
+  };
     const html = exportHtml(editor.blocks, editor.globalStyles, editor.subject);
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
