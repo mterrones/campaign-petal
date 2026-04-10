@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Save, Send, GripVertical, Trash2, Copy, Undo2, Redo2, Download, Monitor, Smartphone, Settings, Code } from "lucide-react";
+import { ArrowLeft, Save, Send, GripVertical, Trash2, Copy, Undo2, Redo2, Download, Monitor, Smartphone, Settings, Code, PanelRight, LayoutGrid } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 import { useEmailEditor } from "@/components/email-editor/useEmailEditor";
 import { BlockSidebar } from "@/components/email-editor/BlockSidebar";
@@ -19,8 +21,11 @@ import { exportHtml } from "@/components/email-editor/htmlExport";
 
 const EmailEditor = () => {
   const editor = useEmailEditor();
+  const isMobile = useIsMobile();
   const [htmlCode, setHtmlCode] = useState("");
   const [htmlDirty, setHtmlDirty] = useState(false);
+  const [showBlocks, setShowBlocks] = useState(false);
+  const [showProps, setShowProps] = useState(false);
 
   const selectedBlockData = editor.blocks.find(b => b.id === editor.selectedBlock) || null;
   const selectedInnerData = editor.selectedInner
