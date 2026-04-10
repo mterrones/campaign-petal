@@ -26,8 +26,8 @@ function TemplatePreview({ blocks, globalStyles }: { blocks: EmailBlock[]; globa
   return (
     <iframe
       srcDoc={html}
-      className="w-[600px] h-[420px] origin-top-left pointer-events-none border-0"
-      style={{ transform: "scale(0.32)", transformOrigin: "top left" }}
+      className="absolute inset-0 w-full h-full pointer-events-none border-0"
+      style={{ transform: "scale(0.35)", transformOrigin: "top left", width: "286%", height: "286%" }}
       tabIndex={-1}
       title="Preview"
     />
