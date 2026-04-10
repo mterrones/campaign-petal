@@ -5,7 +5,6 @@ import {
   Users,
   BarChart3,
   Settings,
-  PlusCircle,
   Key,
 } from "lucide-react";
 import logoImg from "@/assets/enviamas-logo.png";
@@ -35,20 +34,8 @@ const AppSidebar = ({ onNavigate }: AppSidebarProps) => {
         </span>
       </div>
 
-      {/* CTA */}
-      <div className="px-4 mb-5">
-        <NavLink
-          to="/campaigns/new"
-          onClick={onNavigate}
-          className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-gradient-to-r from-primary to-accent text-primary-foreground text-sm font-semibold hover:opacity-90 transition-all shadow-lg shadow-primary/25"
-        >
-          <PlusCircle className="w-4 h-4" />
-          Nueva Campaña
-        </NavLink>
-      </div>
-
       {/* Nav */}
-      <nav className="flex-1 px-3 space-y-1">
+      <nav className="flex-1 px-3 pt-2 space-y-1">
         {navItems.map((item) => {
           const isActive =
             item.to === "/"
