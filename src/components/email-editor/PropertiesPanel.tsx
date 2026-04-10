@@ -7,8 +7,35 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import { EmailBlock, InnerBlock, GlobalEmailStyles, blockTypes, innerBlockTypes, COLUMN_LAYOUTS, FONT_OPTIONS, SOCIAL_NETWORKS } from "./types";
-import { Trash2, Plus, Upload, X, Image as ImageIcon } from "lucide-react";
+import { Trash2, Plus, Upload, X, Image as ImageIcon, Variable } from "lucide-react";
 import React, { useCallback, useRef } from "react";
+
+const CONTACT_VARIABLES = Array.from({ length: 8 }, (_, i) => ({
+  label: `VAR${i + 1}`,
+  value: `{{VAR${i + 1}}}`,
+}));
+
+function VariableButtons({ onInsert }: { onInsert: (variable: string) => void }) {
+  return (
+    <div>
+      <Label className="text-xs flex items-center gap-1"><Variable className="w-3 h-3" /> Variables de contacto</Label>
+      <div className="flex flex-wrap gap-1 mt-1">
+        {CONTACT_VARIABLES.map(v => (
+          <Button
+            key={v.label}
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-6 px-2 text-[10px] font-mono"
+            onClick={() => onInsert(v.value)}
+          >
+            {v.label}
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function ImageUpload({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -137,6 +164,7 @@ function renderBlockProps(block: { type: string; content: Record<string, string>
             <Label className="text-xs">Texto</Label>
             <Input value={c.text} onChange={e => u("text", e.target.value)} className="mt-1 h-8 text-xs" />
           </div>
+          <VariableButtons onInsert={v => u("text", (c.text || "") + v)} />
           <div>
             <Label className="text-xs">Nivel</Label>
             <Select value={c.level || "h1"} onValueChange={v => u("level", v)}>
@@ -176,6 +204,7 @@ function renderBlockProps(block: { type: string; content: Record<string, string>
             <Label className="text-xs">Contenido</Label>
             <Textarea value={c.text} onChange={e => u("text", e.target.value)} className="mt-1 text-xs" rows={4} />
           </div>
+          <VariableButtons onInsert={v => u("text", (c.text || "") + v)} />
           <ColorInput label="Color" value={c.color || "#4a4a5a"} onChange={v => u("color", v)} />
           <div>
             <Label className="text-xs">Tamaño (px)</Label>
@@ -372,6 +401,7 @@ function renderBlockProps(block: { type: string; content: Record<string, string>
             <Label className="text-xs">Texto</Label>
             <Textarea value={c.text} onChange={e => u("text", e.target.value)} className="mt-1 text-xs" rows={2} />
           </div>
+          <VariableButtons onInsert={v => u("text", (c.text || "") + v)} />
           <div>
             <Label className="text-xs">Dirección</Label>
             <Input value={c.address || ""} onChange={e => u("address", e.target.value)} className="mt-1 h-8 text-xs" />
