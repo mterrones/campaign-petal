@@ -129,6 +129,7 @@ const EmailEditor = () => {
               <TabsList>
                 <TabsTrigger value="edit">Editar</TabsTrigger>
                 <TabsTrigger value="preview">Vista Previa</TabsTrigger>
+                <TabsTrigger value="code"><Code className="w-3.5 h-3.5 mr-1" />HTML</TabsTrigger>
               </TabsList>
               {editor.activeTab === "preview" && (
                 <div className="flex gap-1 bg-muted rounded-md p-0.5">
@@ -291,6 +292,36 @@ const EmailEditor = () => {
                     ))}
                   </div>
                 </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="code">
+              <div className="bg-card rounded-xl border shadow-sm overflow-hidden">
+                <div className="flex items-center justify-between bg-muted px-4 py-2 border-b">
+                  <span className="text-xs text-muted-foreground font-medium">Editor HTML</span>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => {
+                      navigator.clipboard.writeText(htmlCode);
+                      toast.success("HTML copiado");
+                    }}>
+                      <Copy className="w-3 h-3 mr-1" />Copiar
+                    </Button>
+                    <Button size="sm" className="h-7 text-xs" disabled={!htmlDirty} onClick={handleApplyHtml}>
+                      Aplicar cambios
+                    </Button>
+                  </div>
+                </div>
+                <Textarea
+                  value={htmlCode}
+                  onChange={e => { setHtmlCode(e.target.value); setHtmlDirty(true); }}
+                  className="font-mono text-xs border-0 rounded-none focus-visible:ring-0 min-h-[500px] resize-y"
+                  spellCheck={false}
+                />
+                {htmlDirty && (
+                  <div className="px-4 py-2 bg-accent/50 border-t text-xs text-muted-foreground">
+                    ⚠️ Has editado el HTML. Al aplicar, se reemplazarán todos los bloques con un bloque HTML único.
+                  </div>
+                )}
               </div>
             </TabsContent>
           </Tabs>
