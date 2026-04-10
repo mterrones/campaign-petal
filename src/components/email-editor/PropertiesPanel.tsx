@@ -192,7 +192,6 @@ function renderBlockProps(block: { type: string; content: Record<string, string>
       return (
         <div className="space-y-3">
           <ImageUpload label="Imagen" value={c.url || ""} onChange={v => u("url", v)} />
-          </div>
           <div>
             <Label className="text-xs">Texto Alt</Label>
             <Input value={c.alt || ""} onChange={e => u("alt", e.target.value)} className="mt-1 h-8 text-xs" />
