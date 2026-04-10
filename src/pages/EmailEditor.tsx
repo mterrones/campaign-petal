@@ -49,6 +49,7 @@ const EmailEditor = () => {
     toast.success("HTML aplicado al editor");
     setHtmlDirty(false);
   };
+  const handleExportHtml = () => {
     const html = exportHtml(editor.blocks, editor.globalStyles, editor.subject);
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
