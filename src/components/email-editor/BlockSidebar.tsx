@@ -12,8 +12,8 @@ interface BlockSidebarProps {
 
 export function BlockSidebar({ onDragStart, onDragEnd }: BlockSidebarProps) {
   return (
-    <div className="w-[88px] flex flex-col gap-1.5 sticky top-8">
-      <p className="text-[10px] text-muted-foreground text-center font-medium uppercase tracking-wider mb-1">Bloques</p>
+    <div className="w-[100px] flex flex-col gap-2 sticky top-8">
+      <p className="text-xs text-muted-foreground text-center font-medium uppercase tracking-wider mb-1">Bloques</p>
       {blockTypes.map((bt) => {
         const Icon = iconMap[bt.icon] || Type;
         return (
@@ -22,11 +22,11 @@ export function BlockSidebar({ onDragStart, onDragEnd }: BlockSidebarProps) {
             draggable
             onDragStart={(e) => onDragStart(e, bt.type)}
             onDragEnd={onDragEnd}
-            className="w-[80px] h-[56px] rounded-lg bg-card border flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-foreground hover:border-primary/40 hover:shadow-md transition-all cursor-grab active:cursor-grabbing select-none"
+            className="w-[92px] h-[72px] rounded-lg bg-card border flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-foreground hover:border-primary/40 hover:shadow-md transition-all cursor-grab active:cursor-grabbing select-none"
             title={`Arrastra "${bt.label}" al editor`}
           >
-            <Icon className="w-4 h-4" />
-            <span className="text-[9px] font-medium leading-tight">{bt.label}</span>
+            <Icon className="w-5 h-5" />
+            <span className="text-xs font-medium leading-tight">{bt.label}</span>
           </div>
         );
       })}
