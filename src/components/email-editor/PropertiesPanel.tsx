@@ -7,7 +7,70 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import { EmailBlock, InnerBlock, GlobalEmailStyles, blockTypes, innerBlockTypes, COLUMN_LAYOUTS, FONT_OPTIONS, SOCIAL_NETWORKS } from "./types";
-import { Trash2, Plus } from "lucide-react";
+import { Trash2, Plus, Upload, X, Image as ImageIcon } from "lucide-react";
+import React, { useCallback, useRef } from "react";
+
+function ImageUpload({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = useCallback((file: File) => {
+    if (!file.type.startsWith("image/")) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") onChange(reader.result);
+    };
+    reader.readAsDataURL(file);
+  }, [onChange]);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  }, [handleFile]);
+
+  return (
+    <div className="space-y-2">
+      <Label className="text-xs">{label}</Label>
+      {value && (
+        <div className="relative group">
+          <img src={value} alt="Preview" className="w-full max-h-32 object-contain rounded border border-border bg-muted" />
+          <Button
+            variant="destructive"
+            size="icon"
+            className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+            onClick={() => onChange("")}
+          >
+            <X className="w-3 h-3" />
+          </Button>
+        </div>
+      )}
+      <div
+        className="border-2 border-dashed border-border rounded-md p-3 text-center cursor-pointer hover:border-primary/50 hover:bg-accent/30 transition-colors"
+        onClick={() => inputRef.current?.click()}
+        onDragOver={e => e.preventDefault()}
+        onDrop={handleDrop}
+      >
+        <Upload className="w-5 h-5 mx-auto text-muted-foreground mb-1" />
+        <p className="text-xs text-muted-foreground">Arrastra una imagen o haz clic para subir</p>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={e => {
+            const file = e.target.files?.[0];
+            if (file) handleFile(file);
+            e.target.value = "";
+          }}
+        />
+      </div>
+      <div>
+        <Label className="text-xs text-muted-foreground">O pega una URL</Label>
+        <Input value={value?.startsWith("data:") ? "" : value} onChange={e => onChange(e.target.value)} className="mt-1 h-8 text-xs" placeholder="https://..." />
+      </div>
+    </div>
+  );
+}
 
 interface PropertiesPanelProps {
   selectedBlock: EmailBlock | null;
@@ -128,10 +191,7 @@ function renderBlockProps(block: { type: string; content: Record<string, string>
     case "image":
       return (
         <div className="space-y-3">
-          <div>
-            <Label className="text-xs">URL Imagen</Label>
-            <Input value={c.url} onChange={e => u("url", e.target.value)} className="mt-1 h-8 text-xs" />
-          </div>
+          <ImageUpload label="Imagen" value={c.url || ""} onChange={v => u("url", v)} />
           <div>
             <Label className="text-xs">Texto Alt</Label>
             <Input value={c.alt || ""} onChange={e => u("alt", e.target.value)} className="mt-1 h-8 text-xs" />
@@ -340,10 +400,7 @@ function renderBlockProps(block: { type: string; content: Record<string, string>
             <Label className="text-xs">URL del Video</Label>
             <Input value={c.url || ""} onChange={e => u("url", e.target.value)} className="mt-1 h-8 text-xs" placeholder="https://youtube.com/..." />
           </div>
-          <div>
-            <Label className="text-xs">URL Thumbnail</Label>
-            <Input value={c.thumbnailUrl || ""} onChange={e => u("thumbnailUrl", e.target.value)} className="mt-1 h-8 text-xs" />
-          </div>
+          <ImageUpload label="Thumbnail" value={c.thumbnailUrl || ""} onChange={v => u("thumbnailUrl", v)} />
           <div>
             <Label className="text-xs">Texto del botón</Label>
             <Input value={c.playButtonText || ""} onChange={e => u("playButtonText", e.target.value)} className="mt-1 h-8 text-xs" />
@@ -362,10 +419,7 @@ function renderBlockProps(block: { type: string; content: Record<string, string>
     case "logo":
       return (
         <div className="space-y-3">
-          <div>
-            <Label className="text-xs">URL del Logo</Label>
-            <Input value={c.url || ""} onChange={e => u("url", e.target.value)} className="mt-1 h-8 text-xs" />
-          </div>
+          <ImageUpload label="Logo" value={c.url || ""} onChange={v => u("url", v)} />
           <div>
             <Label className="text-xs">Texto Alt</Label>
             <Input value={c.alt || ""} onChange={e => u("alt", e.target.value)} className="mt-1 h-8 text-xs" />
