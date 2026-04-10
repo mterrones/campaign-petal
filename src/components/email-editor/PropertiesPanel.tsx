@@ -401,6 +401,7 @@ function renderBlockProps(block: { type: string; content: Record<string, string>
             <Label className="text-xs">Texto</Label>
             <Textarea value={c.text} onChange={e => u("text", e.target.value)} className="mt-1 text-xs" rows={2} />
           </div>
+          <VariableButtons onInsert={v => u("text", (c.text || "") + v)} />
           <div>
             <Label className="text-xs">Dirección</Label>
             <Input value={c.address || ""} onChange={e => u("address", e.target.value)} className="mt-1 h-8 text-xs" />
