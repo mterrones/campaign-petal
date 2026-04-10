@@ -116,7 +116,7 @@
     @apply flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200;
   }
   .sidebar-link-active {
-    @apply bg-[hsl(var(--sidebar-active))] text-[hsl(var(--sidebar-fg))] shadow-lg shadow-[hsl(var(--sidebar-active)/0.3)];
+    @apply bg-primary text-primary-foreground shadow-md shadow-primary/20;
   }
   .sidebar-link-inactive {
     @apply text-[hsl(var(--sidebar-muted))] hover:bg-[hsl(var(--sidebar-hover))] hover:text-[hsl(var(--sidebar-fg))];
