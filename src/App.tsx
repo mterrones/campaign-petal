@@ -10,6 +10,7 @@ import EmailEditor from "./pages/EmailEditor";
 import Contacts from "./pages/Contacts";
 import Reports from "./pages/Reports";
 import CampaignReport from "./pages/CampaignReport";
+import DomainSettings from "./pages/DomainSettings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +29,7 @@ const App = () => (
             <Route path="/contacts" element={<Contacts />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/reports/:id" element={<CampaignReport />} />
+            <Route path="/settings" element={<DomainSettings />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
