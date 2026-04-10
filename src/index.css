@@ -119,6 +119,6 @@
     @apply bg-primary text-primary-foreground shadow-md shadow-primary/25;
   }
   .sidebar-link-inactive {
-    @apply text-[hsl(var(--sidebar-muted))] hover:bg-[hsl(var(--sidebar-hover))] hover:text-[hsl(var(--sidebar-fg))];
+    @apply text-muted-foreground hover:bg-accent hover:text-accent-foreground;
   }
 }
