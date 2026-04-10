@@ -20,12 +20,12 @@ const AppSidebar = () => {
   const location = useLocation();
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 bg-[hsl(var(--sidebar-bg))] flex flex-col z-50">
+    <aside className="fixed left-0 top-0 h-screen w-64 bg-[hsl(var(--sidebar-bg))] border-r border-[hsl(var(--sidebar-border))] flex flex-col z-50">
       {/* Logo */}
       <div className="p-5 flex items-center gap-3">
         <img src={logoImg} alt="EnviaMas" className="w-10 h-10 rounded-xl" />
         <span className="text-xl font-extrabold tracking-tight text-[hsl(var(--sidebar-fg))]">
-          EnviaMas
+          Envía<span className="text-primary">Mas</span>
         </span>
       </div>
 
