@@ -229,7 +229,7 @@ const Contacts = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="stat-card">
           <p className="text-sm text-muted-foreground">Activos</p>
           <p className="text-2xl font-bold mt-1">{contactsList.filter((c) => c.status === "active").length.toLocaleString()}</p>
@@ -245,9 +245,9 @@ const Contacts = () => {
       </div>
 
       {/* Main layout: sidebar + table */}
-      <div className="flex gap-6">
-        {/* Directory sidebar */}
-        <div className="w-56 shrink-0 space-y-1">
+      <div className="flex flex-col md:flex-row gap-6">
+        {/* Directory sidebar - horizontal scroll on mobile */}
+        <div className="md:w-56 md:shrink-0 space-y-1">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Directorios</h3>
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setNewDirDialogOpen(true)}>
@@ -255,50 +255,52 @@ const Contacts = () => {
             </Button>
           </div>
 
-          {directories.map((dir) => (
-            <div
-              key={dir.id}
-              className={cn(
-                "group flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer text-sm transition-colors",
-                activeDir === dir.id ? "bg-primary/10 text-primary font-medium" : "hover:bg-muted text-foreground"
-              )}
-              onClick={() => { setActiveDir(dir.id); setSelectedIds(new Set()); }}
-            >
-              <Folder className="w-4 h-4 shrink-0" style={{ color: dir.color }} />
-              <span className="flex-1 truncate">{dir.name}</span>
-              <span className="text-xs text-muted-foreground">
-                {dir.id === "all" ? contactsList.length : (dirCounts[dir.id] || 0)}
-              </span>
-              {dir.id !== "all" && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost" size="icon"
-                      className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <MoreHorizontal className="w-3.5 h-3.5" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => { setEditDirId(dir.id); setEditDirName(dir.name); }}>
-                      <Pencil className="w-3.5 h-3.5 mr-2" /> Renombrar
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem className="text-destructive" onClick={() => setDeleteDirConfirm(dir.id)}>
-                      <Trash2 className="w-3.5 h-3.5 mr-2" /> Eliminar
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </div>
-          ))}
+          <div className="flex md:flex-col gap-1 overflow-x-auto md:overflow-x-visible pb-2 md:pb-0">
+            {directories.map((dir) => (
+              <div
+                key={dir.id}
+                className={cn(
+                  "group flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer text-sm transition-colors whitespace-nowrap shrink-0 md:shrink",
+                  activeDir === dir.id ? "bg-primary/10 text-primary font-medium" : "hover:bg-muted text-foreground"
+                )}
+                onClick={() => { setActiveDir(dir.id); setSelectedIds(new Set()); }}
+              >
+                <Folder className="w-4 h-4 shrink-0" style={{ color: dir.color }} />
+                <span className="flex-1 truncate">{dir.name}</span>
+                <span className="text-xs text-muted-foreground">
+                  {dir.id === "all" ? contactsList.length : (dirCounts[dir.id] || 0)}
+                </span>
+                {dir.id !== "all" && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost" size="icon"
+                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <MoreHorizontal className="w-3.5 h-3.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => { setEditDirId(dir.id); setEditDirName(dir.name); }}>
+                        <Pencil className="w-3.5 h-3.5 mr-2" /> Renombrar
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem className="text-destructive" onClick={() => setDeleteDirConfirm(dir.id)}>
+                        <Trash2 className="w-3.5 h-3.5 mr-2" /> Eliminar
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Content */}
         <div className="flex-1 space-y-4 min-w-0">
           {/* Search + Add button + bulk actions */}
-          <div className="flex gap-3 items-center justify-between">
+          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
@@ -309,8 +311,8 @@ const Contacts = () => {
               />
             </div>
 
-            <div className="flex gap-2 items-center">
-              <Button onClick={() => setAddMode("choose")}>
+            <div className="flex gap-2 items-center flex-wrap">
+              <Button onClick={() => setAddMode("choose")} className="w-full sm:w-auto">
                 <UserPlus className="w-4 h-4 mr-2" /> Agregar Contactos
               </Button>
 
@@ -318,7 +320,7 @@ const Contacts = () => {
                 <>
                   <Badge variant="secondary" className="text-xs">
                     <CheckSquare className="w-3.5 h-3.5 mr-1" />
-                    {selectedIds.size} seleccionados
+                    {selectedIds.size} sel.
                   </Badge>
                   <Button variant="outline" size="sm" onClick={() => setMoveDialogOpen(true)}>
                     <ArrowRightLeft className="w-4 h-4 mr-1" /> Mover
@@ -334,8 +336,68 @@ const Contacts = () => {
             </div>
           </div>
 
-          {/* Table */}
-          <div className="bg-card rounded-xl border shadow-sm overflow-hidden">
+          {/* Mobile contact cards */}
+          <div className="md:hidden space-y-3">
+            {filtered.length === 0 && (
+              <div className="text-center py-12 text-muted-foreground">
+                <Users className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                <p>No hay contactos en este directorio</p>
+              </div>
+            )}
+            {filtered.map((c) => {
+              const dir = directories.find((d) => d.id === c.directoryId);
+              return (
+                <div key={c.id} className={cn("bg-card rounded-xl border shadow-sm p-4", selectedIds.has(c.id) && "ring-2 ring-primary/30")}>
+                  <div className="flex items-start gap-3">
+                    <Checkbox checked={selectedIds.has(c.id)} onCheckedChange={() => toggleOne(c.id)} className="mt-1" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm">{c.name} {c.lastName}</p>
+                      <p className="text-xs text-muted-foreground truncate">{c.email}</p>
+                      <div className="flex items-center gap-2 mt-2 flex-wrap">
+                        <div className="flex items-center gap-1 text-xs">
+                          <Folder className="w-3 h-3" style={{ color: dir?.color }} />
+                          {dir?.name}
+                        </div>
+                        <Badge variant="outline" className={`text-xs ${statusMap[c.status]?.className}`}>
+                          {statusMap[c.status]?.label}
+                        </Badge>
+                        {c.tags.map((t) => (
+                          <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                          <MoreHorizontal className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem>Editar</DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        {directories.filter((d) => d.id !== "all" && d.id !== c.directoryId).map((d) => (
+                          <DropdownMenuItem key={d.id} onClick={() => {
+                            setContactsList((list) => list.map((x) => x.id === c.id ? { ...x, directoryId: d.id } : x));
+                            toast({ title: `Movido a "${d.name}"` });
+                          }}>
+                            <Folder className="w-3.5 h-3.5 mr-2" style={{ color: d.color }} />
+                            Mover a {d.name}
+                          </DropdownMenuItem>
+                        ))}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteContact(c.id)}>
+                          <Trash2 className="w-3.5 h-3.5 mr-2" /> Eliminar
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden md:block bg-card rounded-xl border shadow-sm overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>
