@@ -14,6 +14,13 @@ export interface Campaign {
   scheduledAt?: string;
 }
 
+export interface ContactDirectory {
+  id: string;
+  name: string;
+  color: string;
+  count?: number;
+}
+
 export interface Contact {
   id: string;
   email: string;
@@ -23,6 +30,7 @@ export interface Contact {
   status: "active" | "unsubscribed" | "bounced";
   createdAt: string;
   list: string;
+  directoryId: string;
 }
 
 export const campaigns: Campaign[] = [
@@ -96,15 +104,23 @@ export const campaigns: Campaign[] = [
   },
 ];
 
+export const defaultDirectories: ContactDirectory[] = [
+  { id: "all", name: "Todos", color: "hsl(var(--primary))" },
+  { id: "general", name: "General", color: "hsl(210, 70%, 50%)" },
+  { id: "vip", name: "VIP", color: "hsl(45, 90%, 50%)" },
+  { id: "promos", name: "Promos", color: "hsl(150, 60%, 45%)" },
+  { id: "leads", name: "Leads", color: "hsl(280, 60%, 55%)" },
+];
+
 export const contacts: Contact[] = [
-  { id: "1", email: "maria.garcia@email.com", name: "María", lastName: "García", tags: ["VIP", "Newsletter"], status: "active", createdAt: "2026-01-15", list: "General" },
-  { id: "2", email: "carlos.lopez@email.com", name: "Carlos", lastName: "López", tags: ["Newsletter"], status: "active", createdAt: "2026-02-10", list: "General" },
-  { id: "3", email: "ana.martinez@email.com", name: "Ana", lastName: "Martínez", tags: ["VIP", "Promos"], status: "active", createdAt: "2026-01-20", list: "Promos" },
-  { id: "4", email: "juan.rodriguez@email.com", name: "Juan", lastName: "Rodríguez", tags: ["Newsletter"], status: "unsubscribed", createdAt: "2025-11-05", list: "General" },
-  { id: "5", email: "laura.sanchez@email.com", name: "Laura", lastName: "Sánchez", tags: ["Promos"], status: "bounced", createdAt: "2026-03-01", list: "Promos" },
-  { id: "6", email: "pedro.fernandez@email.com", name: "Pedro", lastName: "Fernández", tags: ["VIP"], status: "active", createdAt: "2026-02-28", list: "VIP" },
-  { id: "7", email: "sofia.ruiz@email.com", name: "Sofía", lastName: "Ruiz", tags: ["Newsletter", "Promos"], status: "active", createdAt: "2026-03-15", list: "General" },
-  { id: "8", email: "diego.moreno@email.com", name: "Diego", lastName: "Moreno", tags: ["Newsletter"], status: "active", createdAt: "2026-04-01", list: "General" },
+  { id: "1", email: "maria.garcia@email.com", name: "María", lastName: "García", tags: ["VIP", "Newsletter"], status: "active", createdAt: "2026-01-15", list: "General", directoryId: "general" },
+  { id: "2", email: "carlos.lopez@email.com", name: "Carlos", lastName: "López", tags: ["Newsletter"], status: "active", createdAt: "2026-02-10", list: "General", directoryId: "general" },
+  { id: "3", email: "ana.martinez@email.com", name: "Ana", lastName: "Martínez", tags: ["VIP", "Promos"], status: "active", createdAt: "2026-01-20", list: "Promos", directoryId: "vip" },
+  { id: "4", email: "juan.rodriguez@email.com", name: "Juan", lastName: "Rodríguez", tags: ["Newsletter"], status: "unsubscribed", createdAt: "2025-11-05", list: "General", directoryId: "general" },
+  { id: "5", email: "laura.sanchez@email.com", name: "Laura", lastName: "Sánchez", tags: ["Promos"], status: "bounced", createdAt: "2026-03-01", list: "Promos", directoryId: "promos" },
+  { id: "6", email: "pedro.fernandez@email.com", name: "Pedro", lastName: "Fernández", tags: ["VIP"], status: "active", createdAt: "2026-02-28", list: "VIP", directoryId: "vip" },
+  { id: "7", email: "sofia.ruiz@email.com", name: "Sofía", lastName: "Ruiz", tags: ["Newsletter", "Promos"], status: "active", createdAt: "2026-03-15", list: "General", directoryId: "leads" },
+  { id: "8", email: "diego.moreno@email.com", name: "Diego", lastName: "Moreno", tags: ["Newsletter"], status: "active", createdAt: "2026-04-01", list: "General", directoryId: "general" },
 ];
 
 export const dashboardStats = {
