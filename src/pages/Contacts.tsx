@@ -226,11 +226,6 @@ const Contacts = () => {
           <h1 className="text-2xl font-bold">Contactos</h1>
           <p className="text-muted-foreground mt-1">Gestiona tu base de datos de suscriptores</p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={() => setAddMode("choose")}>
-            <UserPlus className="w-4 h-4 mr-2" /> Agregar Contactos
-          </Button>
-        </div>
       </div>
 
       {/* Stats */}
