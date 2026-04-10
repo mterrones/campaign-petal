@@ -7,8 +7,35 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import { EmailBlock, InnerBlock, GlobalEmailStyles, blockTypes, innerBlockTypes, COLUMN_LAYOUTS, FONT_OPTIONS, SOCIAL_NETWORKS } from "./types";
-import { Trash2, Plus, Upload, X, Image as ImageIcon } from "lucide-react";
+import { Trash2, Plus, Upload, X, Image as ImageIcon, Variable } from "lucide-react";
 import React, { useCallback, useRef } from "react";
+
+const CONTACT_VARIABLES = Array.from({ length: 8 }, (_, i) => ({
+  label: `VAR${i + 1}`,
+  value: `{{VAR${i + 1}}}`,
+}));
+
+function VariableButtons({ onInsert }: { onInsert: (variable: string) => void }) {
+  return (
+    <div>
+      <Label className="text-xs flex items-center gap-1"><Variable className="w-3 h-3" /> Variables de contacto</Label>
+      <div className="flex flex-wrap gap-1 mt-1">
+        {CONTACT_VARIABLES.map(v => (
+          <Button
+            key={v.label}
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-6 px-2 text-[10px] font-mono"
+            onClick={() => onInsert(v.value)}
+          >
+            {v.label}
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function ImageUpload({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
