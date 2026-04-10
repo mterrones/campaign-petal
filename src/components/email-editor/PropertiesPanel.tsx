@@ -94,7 +94,7 @@ function renderBlockProps(block: { type: string; content: Record<string, string>
             <Select value={c.fontFamily || ""} onValueChange={v => u("fontFamily", v)}>
               <SelectTrigger className="h-8 text-xs mt-1"><SelectValue placeholder="Global" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Global</SelectItem>
+                <SelectItem value="global">Global</SelectItem>
                 {FONT_OPTIONS.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
               </SelectContent>
             </Select>
