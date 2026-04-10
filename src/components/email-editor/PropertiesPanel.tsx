@@ -191,9 +191,7 @@ function renderBlockProps(block: { type: string; content: Record<string, string>
     case "image":
       return (
         <div className="space-y-3">
-          <div>
-            <Label className="text-xs">URL Imagen</Label>
-            <Input value={c.url} onChange={e => u("url", e.target.value)} className="mt-1 h-8 text-xs" />
+          <ImageUpload label="Imagen" value={c.url || ""} onChange={v => u("url", v)} />
           </div>
           <div>
             <Label className="text-xs">Texto Alt</Label>
@@ -403,10 +401,7 @@ function renderBlockProps(block: { type: string; content: Record<string, string>
             <Label className="text-xs">URL del Video</Label>
             <Input value={c.url || ""} onChange={e => u("url", e.target.value)} className="mt-1 h-8 text-xs" placeholder="https://youtube.com/..." />
           </div>
-          <div>
-            <Label className="text-xs">URL Thumbnail</Label>
-            <Input value={c.thumbnailUrl || ""} onChange={e => u("thumbnailUrl", e.target.value)} className="mt-1 h-8 text-xs" />
-          </div>
+          <ImageUpload label="Thumbnail" value={c.thumbnailUrl || ""} onChange={v => u("thumbnailUrl", v)} />
           <div>
             <Label className="text-xs">Texto del botón</Label>
             <Input value={c.playButtonText || ""} onChange={e => u("playButtonText", e.target.value)} className="mt-1 h-8 text-xs" />
@@ -425,10 +420,7 @@ function renderBlockProps(block: { type: string; content: Record<string, string>
     case "logo":
       return (
         <div className="space-y-3">
-          <div>
-            <Label className="text-xs">URL del Logo</Label>
-            <Input value={c.url || ""} onChange={e => u("url", e.target.value)} className="mt-1 h-8 text-xs" />
-          </div>
+          <ImageUpload label="Logo" value={c.url || ""} onChange={v => u("url", v)} />
           <div>
             <Label className="text-xs">Texto Alt</Label>
             <Input value={c.alt || ""} onChange={e => u("alt", e.target.value)} className="mt-1 h-8 text-xs" />
