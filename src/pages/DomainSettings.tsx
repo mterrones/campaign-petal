@@ -21,75 +21,139 @@ import {
   Server,
   FileKey,
   Info,
+  AlertCircle,
 } from "lucide-react";
 
 interface DnsRecord {
   type: string;
   host: string;
   value: string;
+  ttl: string;
   status: "verified" | "pending" | "error";
 }
 
+type DomainType = "subdomain" | "root";
+
+const DUMMY_IP = "203.0.113.50";
+const DUMMY_DKIM_KEY = "v=DKIM1; k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC3QzYkPG2bJml8xOmXQ...clave_publica_ejemplo";
+
+/** Validates domain/subdomain format */
+const validateDomain = (value: string): string | null => {
+  const trimmed = value.trim();
+
+  if (!trimmed) return "Ingresa un dominio o subdominio.";
+  if (/\s/.test(trimmed)) return "El dominio no debe contener espacios.";
+  if (/^https?:\/\//i.test(trimmed)) return "No incluyas http:// o https://. Solo el dominio.";
+  if (trimmed.includes("/")) return "No incluyas rutas. Solo el dominio (ej: news.tuempresa.com).";
+  if (trimmed.includes("@")) return "Ingresa un dominio, no un email (ej: news.tuempresa.com).";
+  if (trimmed.startsWith(".") || trimmed.endsWith(".")) return "El dominio no puede empezar ni terminar con punto.";
+
+  const domainRegex = /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/;
+  if (!domainRegex.test(trimmed)) return "Formato de dominio inválido. Ejemplo: news.tuempresa.com";
+
+  return null;
+};
+
+/** Extracts the subdomain prefix from a full domain for DNS host entries */
+const getSubdomainPrefix = (domain: string): string | null => {
+  const parts = domain.split(".");
+  if (parts.length > 2) {
+    return parts.slice(0, parts.length - 2).join(".");
+  }
+  return null;
+};
+
+/** Generates DNS records based on domain */
+const generateDnsRecords = (domain: string): DnsRecord[] => {
+  const prefix = getSubdomainPrefix(domain);
+  const hostBase = prefix || "@";
+
+  const records: DnsRecord[] = [
+    // A Record
+    {
+      type: "A",
+      host: prefix ? `mail.${prefix}` : "mail",
+      value: DUMMY_IP,
+      ttl: "3600",
+      status: "pending",
+    },
+    // SPF
+    {
+      type: "TXT (SPF)",
+      host: hostBase === "@" ? "@" : prefix!,
+      value: `v=spf1 ip4:${DUMMY_IP} -all`,
+      ttl: "3600",
+      status: "pending",
+    },
+    // DKIM
+    {
+      type: "TXT (DKIM)",
+      host: prefix ? `selector1._domainkey.${prefix}` : "selector1._domainkey",
+      value: DUMMY_DKIM_KEY,
+      ttl: "3600",
+      status: "pending",
+    },
+    // DMARC
+    {
+      type: "TXT (DMARC)",
+      host: prefix ? `_dmarc.${prefix}` : "_dmarc",
+      value: `v=DMARC1; p=none; rua=mailto:dmarc@${domain}; adkim=r; aspf=r`,
+      ttl: "3600",
+      status: "pending",
+    },
+    // MX (optional, for bounces)
+    {
+      type: "MX",
+      host: prefix ? `bounce.${prefix}` : "bounce",
+      value: `mail.${domain}`,
+      ttl: "3600",
+      status: "pending",
+    },
+  ];
+
+  return records;
+};
+
 const DomainSettings = () => {
+  const [domainType, setDomainType] = useState<DomainType>("subdomain");
   const [domain, setDomain] = useState("");
+  const [validationError, setValidationError] = useState<string | null>(null);
   const [isConfigured, setIsConfigured] = useState(false);
   const [verifying, setVerifying] = useState(false);
-
-  // Simulated DNS records
   const [dnsRecords, setDnsRecords] = useState<DnsRecord[]>([]);
 
+  const handleDomainChange = (value: string) => {
+    setDomain(value);
+    if (validationError) setValidationError(null);
+  };
+
   const handleConfigureDomain = () => {
-    if (!domain.trim()) {
-      toast.error("Ingresa un dominio válido");
+    const trimmed = domain.trim().toLowerCase();
+    const error = validateDomain(trimmed);
+    if (error) {
+      setValidationError(error);
+      toast.error(error);
       return;
     }
-    const d = domain.trim().toLowerCase();
-    setDnsRecords([
-      {
-        type: "TXT (SPF)",
-        host: d,
-        value: `v=spf1 include:_spf.${d} include:amazonses.com ~all`,
-        status: "pending",
-      },
-      {
-        type: "CNAME (DKIM)",
-        host: `selector1._domainkey.${d}`,
-        value: `selector1._domainkey.${d}.dkim.amazonses.com`,
-        status: "pending",
-      },
-      {
-        type: "CNAME (DKIM)",
-        host: `selector2._domainkey.${d}`,
-        value: `selector2._domainkey.${d}.dkim.amazonses.com`,
-        status: "pending",
-      },
-      {
-        type: "CNAME (DKIM)",
-        host: `selector3._domainkey.${d}`,
-        value: `selector3._domainkey.${d}.dkim.amazonses.com`,
-        status: "pending",
-      },
-      {
-        type: "TXT (DMARC)",
-        host: `_dmarc.${d}`,
-        value: `v=DMARC1; p=quarantine; rua=mailto:dmarc@${d}; pct=100`,
-        status: "pending",
-      },
-      {
-        type: "MX",
-        host: `bounce.${d}`,
-        value: `feedback-smtp.us-east-1.amazonses.com`,
-        status: "pending",
-      },
-      {
-        type: "TXT (Return-Path)",
-        host: `bounce.${d}`,
-        value: `v=spf1 include:amazonses.com ~all`,
-        status: "pending",
-      },
-    ]);
+
+    // Warn if root domain is used for mass sending
+    const isSubdomain = trimmed.split(".").length > 2;
+    if (domainType === "root" && !isSubdomain) {
+      toast.warning("Recomendación: usa un subdominio exclusivo para envío masivo. Esto protege la reputación de tu dominio principal.");
+    }
+
+    const records = generateDnsRecords(trimmed);
+    setDnsRecords(records);
     setIsConfigured(true);
-    toast.success(`Dominio ${d} configurado. Agrega los registros DNS a tu proveedor.`);
+    setValidationError(null);
+    toast.success(`Dominio ${trimmed} configurado. Agrega los registros DNS a tu proveedor.`);
+  };
+
+  const handleReset = () => {
+    setIsConfigured(false);
+    setDnsRecords([]);
+    setDomain("");
+    setValidationError(null);
   };
 
   const handleVerify = () => {
@@ -102,7 +166,7 @@ const DomainSettings = () => {
         }))
       );
       setVerifying(false);
-      toast.info("Verificación completada. Algunos registros pueden tardar hasta 72h en propagarse.");
+      toast.info("Verificación completada. Algunos registros pueden tardar hasta 72 horas en propagarse.");
     }, 2000);
   };
 
@@ -151,6 +215,7 @@ const DomainSettings = () => {
 
         {/* Tab: Dominio */}
         <TabsContent value="domain" className="space-y-4">
+          {/* Paso 1: Tipo y dominio */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -158,93 +223,166 @@ const DomainSettings = () => {
                 Dominio de Envío
               </CardTitle>
               <CardDescription>
-                Ingresa el dominio desde el cual enviarás correos electrónicos. Deberás agregar registros DNS para verificar la propiedad.
+                Configura el dominio o subdominio desde el cual enviarás correos electrónicos.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <Label className="text-sm">Dominio</Label>
-                  <Input
-                    value={domain}
-                    onChange={e => setDomain(e.target.value)}
-                    placeholder="tuempresa.com"
-                    className="mt-1"
-                    disabled={isConfigured}
-                  />
-                </div>
-                {!isConfigured ? (
-                  <Button className="mt-6" onClick={handleConfigureDomain}>
-                    Configurar Dominio
-                  </Button>
-                ) : (
-                  <Button variant="outline" className="mt-6" onClick={() => { setIsConfigured(false); setDnsRecords([]); setDomain(""); }}>
-                    Cambiar
-                  </Button>
+            <CardContent className="space-y-5">
+              {/* Tipo de dominio */}
+              <div>
+                <Label className="text-sm font-medium">Tipo</Label>
+                <Select
+                  value={domainType}
+                  onValueChange={(v) => setDomainType(v as DomainType)}
+                  disabled={isConfigured}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="subdomain">Subdominio (recomendado para envíos masivos)</SelectItem>
+                    <SelectItem value="root">Dominio raíz</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Dominio input */}
+              <div>
+                <Label className="text-sm font-medium">
+                  {domainType === "subdomain" ? "Subdominio de envío" : "Dominio de envío"}
+                </Label>
+                <Input
+                  value={domain}
+                  onChange={e => handleDomainChange(e.target.value)}
+                  placeholder={domainType === "subdomain" ? "news.tuempresa.com" : "tuempresa.com"}
+                  className={`mt-1 ${validationError ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                  disabled={isConfigured}
+                />
+                {validationError && (
+                  <div className="flex items-center gap-1.5 mt-1.5 text-destructive">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    <span className="text-xs">{validationError}</span>
+                  </div>
                 )}
               </div>
 
-              {isConfigured && (
-                <div className="bg-accent/50 rounded-lg p-4 flex items-start gap-3">
-                  <Info className="w-5 h-5 text-primary mt-0.5 shrink-0" />
-                  <div className="text-sm">
-                    <p className="font-medium">Agrega los registros DNS en tu proveedor</p>
-                    <p className="text-muted-foreground mt-1">
-                      Accede al panel de administración de tu dominio (GoDaddy, Cloudflare, Namecheap, etc.) y agrega los registros que se muestran abajo. La propagación puede tardar entre 15 minutos y 72 horas.
-                    </p>
-                  </div>
+              {/* Recomendación */}
+              <div className="bg-accent/50 rounded-lg p-3 flex items-start gap-2.5">
+                <Info className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                <p className="text-xs text-muted-foreground">
+                  <strong className="text-foreground">Recomendado:</strong> usa un subdominio exclusivo para correo saliente
+                  (ej: <code className="text-xs bg-muted px-1 rounded">news.tuempresa.com</code>,{" "}
+                  <code className="text-xs bg-muted px-1 rounded">mail.tuempresa.com</code>).
+                  Esto protege la reputación de tu dominio principal.
+                </p>
+              </div>
+
+              {/* Ejemplos */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="border rounded-lg p-3">
+                  <p className="text-xs font-medium text-primary mb-1.5 flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" /> Ejemplos válidos
+                  </p>
+                  <ul className="text-xs text-muted-foreground space-y-0.5">
+                    <li><code>news.cliente.com</code></li>
+                    <li><code>mail.cliente.com</code></li>
+                    <li><code>cliente.com</code></li>
+                  </ul>
                 </div>
-              )}
+                <div className="border rounded-lg p-3 border-destructive/30">
+                  <p className="text-xs font-medium text-destructive mb-1.5 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" /> Ejemplos inválidos
+                  </p>
+                  <ul className="text-xs text-muted-foreground space-y-0.5">
+                    <li><code>https://cliente.com</code></li>
+                    <li><code>ventas@cliente.com</code></li>
+                    <li><code>cliente.com/home</code></li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Botón de acción */}
+              <div className="flex gap-3">
+                {!isConfigured ? (
+                  <Button onClick={handleConfigureDomain}>
+                    Generar Registros DNS
+                  </Button>
+                ) : (
+                  <Button variant="outline" onClick={handleReset}>
+                    Cambiar Dominio
+                  </Button>
+                )}
+              </div>
             </CardContent>
           </Card>
 
+          {/* Paso 3: Registros DNS generados */}
           {isConfigured && (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">Registros DNS Requeridos</CardTitle>
-                  <Button variant="outline" size="sm" onClick={handleVerify} disabled={verifying}>
-                    <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${verifying ? "animate-spin" : ""}`} />
-                    Verificar DNS
-                  </Button>
+            <>
+              <div className="bg-accent/50 rounded-lg p-4 flex items-start gap-3">
+                <Info className="w-5 h-5 text-primary mt-0.5 shrink-0" />
+                <div className="text-sm">
+                  <p className="font-medium">Agrega estos registros DNS en tu proveedor</p>
+                  <p className="text-muted-foreground mt-1">
+                    Accede al panel de administración de tu dominio (GoDaddy, Cloudflare, Namecheap, etc.) y agrega cada registro.
+                    La propagación puede tardar entre 15 minutos y 72 horas.
+                  </p>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {dnsRecords.map((record, i) => (
-                    <div key={i} className="border rounded-lg p-4 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          {statusIcon(record.status)}
-                          <span className="font-medium text-sm">{record.type}</span>
+              </div>
+
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">Registros DNS Requeridos</CardTitle>
+                    <Button variant="outline" size="sm" onClick={handleVerify} disabled={verifying}>
+                      <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${verifying ? "animate-spin" : ""}`} />
+                      Verificar DNS
+                    </Button>
+                  </div>
+                  <CardDescription>
+                    Dominio configurado: <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{domain.trim().toLowerCase()}</code>
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {dnsRecords.map((record, i) => (
+                      <div key={i} className="border rounded-lg p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            {statusIcon(record.status)}
+                            <span className="font-medium text-sm">{record.type}</span>
+                          </div>
+                          {statusBadge(record.status)}
                         </div>
-                        {statusBadge(record.status)}
-                      </div>
-                      <div className="grid grid-cols-1 gap-2 mt-2">
-                        <div>
-                          <Label className="text-xs text-muted-foreground">Host / Nombre</Label>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <code className="text-xs bg-muted px-2 py-1 rounded flex-1 break-all">{record.host}</code>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => copyToClipboard(record.host)}>
-                              <Copy className="w-3 h-3" />
-                            </Button>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Host / Nombre</Label>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <code className="text-xs bg-muted px-2 py-1 rounded flex-1 break-all">{record.host}</code>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => copyToClipboard(record.host)}>
+                                <Copy className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="sm:col-span-2">
+                            <Label className="text-xs text-muted-foreground">Valor / Destino</Label>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <code className="text-xs bg-muted px-2 py-1 rounded flex-1 break-all">{record.value}</code>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => copyToClipboard(record.value)}>
+                                <Copy className="w-3 h-3" />
+                              </Button>
+                            </div>
                           </div>
                         </div>
                         <div>
-                          <Label className="text-xs text-muted-foreground">Valor</Label>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <code className="text-xs bg-muted px-2 py-1 rounded flex-1 break-all">{record.value}</code>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => copyToClipboard(record.value)}>
-                              <Copy className="w-3 h-3" />
-                            </Button>
-                          </div>
+                          <Label className="text-xs text-muted-foreground">TTL</Label>
+                          <span className="text-xs text-muted-foreground ml-2">{record.ttl}s</span>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </>
           )}
         </TabsContent>
 
@@ -257,7 +395,7 @@ const DomainSettings = () => {
                 DKIM (DomainKeys Identified Mail)
               </CardTitle>
               <CardDescription>
-                DKIM firma digitalmente tus emails para demostrar que no han sido alterados en tránsito. Se requieren 3 registros CNAME.
+                DKIM firma digitalmente tus emails para demostrar que no han sido alterados en tránsito.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -276,7 +414,7 @@ const DomainSettings = () => {
                     <div key={i} className="flex items-center justify-between border rounded-md p-3">
                       <div className="flex items-center gap-2 text-sm">
                         {statusIcon(r.status)}
-                        <code className="text-xs">{r.host.split(".")[0]}</code>
+                        <code className="text-xs">{r.host}</code>
                       </div>
                       {statusBadge(r.status)}
                     </div>
@@ -345,11 +483,11 @@ const DomainSettings = () => {
                   <li>Requerido por Gmail y Yahoo desde febrero 2024 para remitentes masivos</li>
                 </ul>
               </div>
-              {isConfigured && (
+              {isConfigured ? (
                 <div className="space-y-3">
                   <div>
                     <Label className="text-sm">Política DMARC</Label>
-                    <Select defaultValue="quarantine">
+                    <Select defaultValue="none">
                       <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">None — Solo monitorear (recomendado al inicio)</SelectItem>
@@ -360,12 +498,7 @@ const DomainSettings = () => {
                   </div>
                   <div>
                     <Label className="text-sm">Email para reportes DMARC</Label>
-                    <Input defaultValue={`dmarc@${domain}`} className="mt-1" placeholder="dmarc@tudominio.com" />
-                  </div>
-                  <div>
-                    <Label className="text-sm">Porcentaje de aplicación (%)</Label>
-                    <Input type="number" defaultValue="100" min="0" max="100" className="mt-1" />
-                    <p className="text-xs text-muted-foreground mt-1">Porcentaje de emails a los que se aplica la política (100 = todos)</p>
+                    <Input defaultValue={`dmarc@${domain.trim().toLowerCase()}`} className="mt-1" placeholder="dmarc@tudominio.com" />
                   </div>
                   {dnsRecords.filter(r => r.type.includes("DMARC")).map((r, i) => (
                     <div key={i} className="flex items-center justify-between border rounded-md p-3">
@@ -377,8 +510,7 @@ const DomainSettings = () => {
                     </div>
                   ))}
                 </div>
-              )}
-              {!isConfigured && (
+              ) : (
                 <p className="text-sm text-muted-foreground">Configura un dominio primero para configurar DMARC.</p>
               )}
             </CardContent>
@@ -406,11 +538,11 @@ const DomainSettings = () => {
               </div>
               {isConfigured ? (
                 <div className="space-y-2">
-                  {dnsRecords.filter(r => r.type.includes("Return-Path") || r.type === "MX").map((r, i) => (
+                  {dnsRecords.filter(r => r.type === "MX").map((r, i) => (
                     <div key={i} className="flex items-center justify-between border rounded-md p-3">
                       <div className="flex items-center gap-2 text-sm">
                         {statusIcon(r.status)}
-                        <span className="text-xs font-mono">{r.type}</span>
+                        <span className="text-xs font-mono">{r.type} — {r.host}</span>
                       </div>
                       {statusBadge(r.status)}
                     </div>
@@ -440,12 +572,12 @@ const DomainSettings = () => {
                 <div className="flex gap-2 mt-1">
                   <Input defaultValue="noreply" className="w-40" />
                   <span className="flex items-center text-muted-foreground">@</span>
-                  <Input value={domain || "tudominio.com"} disabled className="flex-1" />
+                  <Input value={domain.trim().toLowerCase() || "tudominio.com"} disabled className="flex-1" />
                 </div>
               </div>
               <div>
                 <Label className="text-sm">Email de Respuesta (Reply-To)</Label>
-                <Input defaultValue={`soporte@${domain || "tudominio.com"}`} className="mt-1" placeholder="soporte@tudominio.com" />
+                <Input defaultValue={`soporte@${domain.trim().toLowerCase() || "tudominio.com"}`} className="mt-1" placeholder="soporte@tudominio.com" />
               </div>
 
               <Separator />
