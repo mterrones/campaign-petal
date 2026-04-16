@@ -123,9 +123,3 @@ export const contacts: Contact[] = [
   { id: "8", email: "diego.moreno@email.com", name: "Diego", lastName: "Moreno", tags: ["Newsletter"], status: "active", createdAt: "2026-04-01", list: "General", directoryId: "general" },
 ];
 
-export const dashboardStats = {
-  totalContacts: 24580,
-  totalCampaigns: 47,
-  avgOpenRate: 34.7,
-  avgClickRate: 15.2,
-};

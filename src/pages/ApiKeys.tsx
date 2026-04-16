@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -12,12 +13,20 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { useAuth } from "@/context/AuthContext";
+import { ApiError, getJson, postJson } from "@/lib/api";
 import {
   Key,
   Copy,
-  Eye,
-  EyeOff,
   Plus,
   Trash2,
   Send,
@@ -31,79 +40,99 @@ import {
   BookOpen,
 } from "lucide-react";
 
-interface ApiKey {
+type ApiKeyRow = {
   id: string;
-  name: string;
-  key: string;
-  created: string;
-  lastUsed: string | null;
-  status: "active" | "revoked";
-}
+  label: string | null;
+  createdAt: string;
+  revokedAt: string | null;
+};
 
-const mockKeys: ApiKey[] = [
-  {
-    id: "1",
-    name: "Producción",
-    key: "em_live_sk_4f8a1b2c3d4e5f6a7b8c9d0e1f2a3b4c",
-    created: "2024-01-15",
-    lastUsed: "2024-01-20",
-    status: "active",
-  },
-  {
-    id: "2",
-    name: "Desarrollo",
-    key: "em_test_sk_9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d",
-    created: "2024-01-10",
-    lastUsed: null,
-    status: "active",
-  },
-];
+type CreateKeyResponse = {
+  id: string;
+  clientId: string;
+  key: string;
+  warning: string;
+};
+
+const MASKED_KEY_DISPLAY = "mek_••••••••••••••••••••••••";
 
 const ApiKeys = () => {
-  const [keys, setKeys] = useState<ApiKey[]>(mockKeys);
+  const { token, user } = useAuth();
+  const queryClient = useQueryClient();
   const [newKeyName, setNewKeyName] = useState("");
-  const [visibleKeys, setVisibleKeys] = useState<Set<string>>(new Set());
+  const [createdKeyPlain, setCreatedKeyPlain] = useState<string | null>(null);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast.success("Copiado al portapapeles");
   };
 
-  const toggleKeyVisibility = (id: string) => {
-    setVisibleKeys((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
+  const keysQuery = useQuery({
+    queryKey: ["platform-api-keys", user?.clientId],
+    queryFn: () => getJson<ApiKeyRow[]>("/v1/platform/api-keys", token!),
+    enabled: Boolean(token && user?.clientId),
+  });
 
-  const maskKey = (key: string) => key.slice(0, 12) + "••••••••••••••••••••";
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      const label = newKeyName.trim();
+      if (!label) {
+        throw new Error("LABEL_REQUIRED");
+      }
+      return postJson<CreateKeyResponse>(
+        "/v1/platform/api-keys",
+        { label },
+        { token },
+      );
+    },
+    onSuccess: (data) => {
+      setCreatedKeyPlain(data.key);
+      setNewKeyName("");
+      void queryClient.invalidateQueries({ queryKey: ["platform-api-keys"] });
+      toast.success("API Key creada. Guárdala ahora; no se volverá a mostrar.");
+    },
+    onError: (err: unknown) => {
+      if (err instanceof Error && err.message === "LABEL_REQUIRED") {
+        toast.error("Ingresa un nombre para la API Key");
+        return;
+      }
+      if (err instanceof ApiError) {
+        toast.error(err.message);
+        return;
+      }
+      toast.error("No se pudo crear la API Key");
+    },
+  });
+
+  const revokeMutation = useMutation({
+    mutationFn: (keyId: string) =>
+      postJson<{ ok: boolean }>(
+        `/v1/platform/api-keys/${encodeURIComponent(keyId)}/revoke`,
+        {},
+        { token },
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["platform-api-keys"] });
+      toast.success("API Key revocada");
+    },
+    onError: (err: unknown) => {
+      if (err instanceof ApiError) {
+        toast.error(err.message);
+        return;
+      }
+      toast.error("No se pudo revocar la API Key");
+    },
+  });
 
   const handleCreateKey = () => {
-    if (!newKeyName.trim()) {
-      toast.error("Ingresa un nombre para la API Key");
-      return;
-    }
-    const newKey: ApiKey = {
-      id: Date.now().toString(),
-      name: newKeyName.trim(),
-      key: `em_live_sk_${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`,
-      created: new Date().toISOString().split("T")[0],
-      lastUsed: null,
-      status: "active",
-    };
-    setKeys((prev) => [...prev, newKey]);
-    setNewKeyName("");
-    toast.success("API Key creada exitosamente");
+    createMutation.mutate();
   };
 
   const handleRevokeKey = (id: string) => {
-    setKeys((prev) =>
-      prev.map((k) => (k.id === id ? { ...k, status: "revoked" as const } : k))
-    );
-    toast.success("API Key revocada");
+    revokeMutation.mutate(id);
   };
+
+  const noOrg = user && user.clientId === null;
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -133,103 +162,176 @@ const ApiKeys = () => {
 
         {/* ─── TAB: API Keys ─── */}
         <TabsContent value="keys" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Plus className="w-5 h-5 text-primary" />
-                Crear Nueva API Key
-              </CardTitle>
-              <CardDescription>
-                Genera una clave para autenticar tus peticiones a la API de
-                EnviaMas.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <Label className="text-sm">Nombre descriptivo</Label>
-                  <Input
-                    value={newKeyName}
-                    onChange={(e) => setNewKeyName(e.target.value)}
-                    placeholder="Ej: Backend producción"
-                    className="mt-1"
-                  />
-                </div>
-                <Button className="mt-6" onClick={handleCreateKey}>
-                  <Plus className="w-4 h-4 mr-1" />
-                  Generar Key
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Tus API Keys</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {keys.map((k) => (
-                <div
-                  key={k.id}
-                  className="border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3"
-                >
-                  <div className="flex-1 min-w-0 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm">{k.name}</span>
-                      <Badge
-                        variant={
-                          k.status === "active" ? "default" : "destructive"
-                        }
-                        className="text-xs"
-                      >
-                        {k.status === "active" ? "Activa" : "Revocada"}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <code className="text-xs bg-muted px-2 py-1 rounded break-all">
-                        {visibleKeys.has(k.id) ? k.key : maskKey(k.key)}
-                      </code>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 shrink-0"
-                        onClick={() => toggleKeyVisibility(k.id)}
-                      >
-                        {visibleKeys.has(k.id) ? (
-                          <EyeOff className="w-3.5 h-3.5" />
-                        ) : (
-                          <Eye className="w-3.5 h-3.5" />
-                        )}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 shrink-0"
-                        onClick={() => copyToClipboard(k.key)}
-                      >
-                        <Copy className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Creada: {k.created}
-                      {k.lastUsed && ` · Último uso: ${k.lastUsed}`}
-                    </p>
-                  </div>
-                  {k.status === "active" && (
+          <Dialog
+            open={createdKeyPlain !== null}
+            onOpenChange={(open) => {
+              if (!open) setCreatedKeyPlain(null);
+            }}
+          >
+            <DialogContent className="sm:max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Guarda tu API Key</DialogTitle>
+                <DialogDescription>
+                  Esta es la única vez que podrás ver la clave completa. Cópiala y
+                  almacénala en un lugar seguro.
+                </DialogDescription>
+              </DialogHeader>
+              {createdKeyPlain && (
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">
+                    Secreto (Bearer / X-Api-Key)
+                  </Label>
+                  <div className="flex gap-2">
+                    <code className="text-xs bg-muted px-3 py-2 rounded-md flex-1 break-all">
+                      {createdKeyPlain}
+                    </code>
                     <Button
+                      type="button"
+                      size="icon"
                       variant="outline"
-                      size="sm"
-                      className="text-destructive border-destructive/30 hover:bg-destructive/10"
-                      onClick={() => handleRevokeKey(k.id)}
+                      className="shrink-0"
+                      onClick={() => copyToClipboard(createdKeyPlain)}
                     >
-                      <Trash2 className="w-3.5 h-3.5 mr-1" />
-                      Revocar
+                      <Copy className="w-4 h-4" />
                     </Button>
-                  )}
+                  </div>
                 </div>
-              ))}
-            </CardContent>
-          </Card>
+              )}
+              <DialogFooter>
+                <Button type="button" onClick={() => setCreatedKeyPlain(null)}>
+                  Entendido
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {noOrg && (
+            <Card className="border-amber-500/30 bg-amber-500/5">
+              <CardHeader>
+                <CardTitle className="text-lg">Sin organización</CardTitle>
+                <CardDescription>
+                  Tu cuenta no tiene una organización asignada. Las API Keys se
+                  gestionan por organización. Contacta al administrador para
+                  vincular tu usuario a un cliente.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          )}
+
+          {!noOrg && (
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Plus className="w-5 h-5 text-primary" />
+                    Crear Nueva API Key
+                  </CardTitle>
+                  <CardDescription>
+                    Genera una clave para autenticar tus peticiones a la API de
+                    EnviaMas.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex gap-3">
+                    <div className="flex-1">
+                      <Label className="text-sm">Nombre descriptivo</Label>
+                      <Input
+                        value={newKeyName}
+                        onChange={(e) => setNewKeyName(e.target.value)}
+                        placeholder="Ej: Backend producción"
+                        className="mt-1"
+                        disabled={createMutation.isPending}
+                      />
+                    </div>
+                    <Button
+                      className="mt-6"
+                      onClick={handleCreateKey}
+                      disabled={createMutation.isPending}
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Generar Key
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Tus API Keys</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {keysQuery.isLoading && (
+                    <p className="text-sm text-muted-foreground">
+                      Cargando…
+                    </p>
+                  )}
+                  {keysQuery.isError && (
+                    <p className="text-sm text-destructive">
+                      {(keysQuery.error as ApiError)?.message ??
+                        "No se pudieron cargar las API Keys"}
+                    </p>
+                  )}
+                  {keysQuery.data?.length === 0 && !keysQuery.isLoading && (
+                    <p className="text-sm text-muted-foreground">
+                      Aún no tienes claves. Crea una arriba.
+                    </p>
+                  )}
+                  {keysQuery.data?.map((k) => {
+                    const active = k.revokedAt === null;
+                    const created = new Date(k.createdAt).toLocaleDateString(
+                      "es-PE",
+                      {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      },
+                    );
+                    return (
+                      <div
+                        key={k.id}
+                        className="border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3"
+                      >
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium text-sm">
+                              {k.label?.trim() || "Sin nombre"}
+                            </span>
+                            <Badge
+                              variant={active ? "default" : "destructive"}
+                              className="text-xs"
+                            >
+                              {active ? "Activa" : "Revocada"}
+                            </Badge>
+                          </div>
+                          <code className="text-xs bg-muted px-2 py-1 rounded break-all block max-w-full">
+                            {MASKED_KEY_DISPLAY}
+                            <span className="text-muted-foreground ml-1">
+                              ({k.id.slice(0, 8)}…)
+                            </span>
+                          </code>
+                          <p className="text-xs text-muted-foreground">
+                            Creada: {created}
+                          </p>
+                        </div>
+                        {active && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                            onClick={() => handleRevokeKey(k.id)}
+                            disabled={revokeMutation.isPending}
+                          >
+                            <Trash2 className="w-3.5 h-3.5 mr-1" />
+                            Revocar
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+            </>
+          )}
         </TabsContent>
 
         {/* ─── TAB: Envío Individual ─── */}

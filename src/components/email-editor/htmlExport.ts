@@ -1,7 +1,9 @@
 import { EmailBlock, InnerBlock, GlobalEmailStyles, COLUMN_LAYOUTS, SOCIAL_NETWORKS } from "./types";
 
 function wrap(content: string, pad: string, align?: string): string {
-  return `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"><tr><td style="${pad}${align ? `text-align:${align};` : ""}">${content}</td></tr></table>`;
+  const alignAttr =
+    align === "left" || align === "center" || align === "right" ? ` align="${align}"` : "";
+  return `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"><tr><td${alignAttr} style="${pad}${align ? `text-align:${align};` : ""}">${content}</td></tr></table>`;
 }
 
 function fontStack(ff: string): string {
@@ -21,6 +23,16 @@ function renderSocialIcons(content: Record<string, string>): string {
 
 function pad(c: Record<string, string>): string {
   return `padding:${c.paddingTop || "0"}px ${c.paddingRight || "0"}px ${c.paddingBottom || "0"}px ${c.paddingLeft || "0"}px;`;
+}
+
+function alignBlockImage(inner: string, align: string): string {
+  if (align === "left") {
+    return inner;
+  }
+  if (align === "right") {
+    return `<table cellpadding="0" cellspacing="0" border="0" role="presentation" align="right" style="margin:0 0 0 auto;"><tr><td align="right" style="padding:0;line-height:0;mso-line-height-rule:exactly;">${inner}</td></tr></table>`;
+  }
+  return `<table cellpadding="0" cellspacing="0" border="0" role="presentation" align="center" style="margin:0 auto;"><tr><td align="center" style="padding:0;line-height:0;mso-line-height-rule:exactly;">${inner}</td></tr></table>`;
 }
 
 function renderInnerBlockHtml(block: InnerBlock, gs: GlobalEmailStyles): string {
@@ -44,10 +56,17 @@ function renderInnerBlockHtml(block: InnerBlock, gs: GlobalEmailStyles): string 
       );
     case "image": {
       const w = c.width || "100";
-      const img = `<img src="${c.url}" alt="${c.alt || ""}" width="${w === "100" ? "100%" : w + "%"}" border="0" style="display:block;width:${w}%;height:auto;border:0;outline:none;text-decoration:none;" />`;
-      const wrapped = c.linkUrl ? `<a href="${c.linkUrl}" target="_blank" style="text-decoration:none;">${img}</a>` : img;
-      const caption = c.caption ? `<p style="font-size:12px;color:#999999;margin:4px 0 0;font-family:${ff};">${c.caption}</p>` : "";
-      return wrap(wrapped + caption, p, c.align || "center");
+      const br = c.borderRadius ? `border-radius:${c.borderRadius}px;` : "";
+      const img = `<img src="${c.url}" alt="${c.alt || ""}" width="${w === "100" ? "100%" : w + "%"}" border="0" style="display:block;width:${w}%;height:auto;border:0;outline:none;text-decoration:none;${br}" />`;
+      const wrapped = c.linkUrl
+        ? `<a href="${c.linkUrl}" target="_blank" style="text-decoration:none;color:${gs.linkColor};">${img}</a>`
+        : img;
+      const imgAlign = c.align || "center";
+      const body = alignBlockImage(wrapped, imgAlign);
+      const caption = c.caption
+        ? `<p style="font-size:12px;color:#999999;margin:4px 0 0;font-family:${ff};text-align:${imgAlign};">${c.caption}</p>`
+        : "";
+      return wrap(body + caption, p, imgAlign);
     }
     case "button": {
       return renderBulletproofButton(c, gs);
@@ -61,7 +80,7 @@ function renderInnerBlockHtml(block: InnerBlock, gs: GlobalEmailStyles): string 
     case "video": {
       const thumb = c.thumbnailUrl || "https://placehold.co/600x340/1a1a2e/ffffff?text=%E2%96%B6";
       return wrap(
-        `<a href="${c.url}" target="_blank" style="text-decoration:none;"><img src="${thumb}" alt="Video" width="100%" border="0" style="display:block;width:100%;height:auto;border:0;" /></a>`,
+        `<a href="${c.url}" target="_blank" style="text-decoration:none;color:${gs.linkColor};"><img src="${thumb}" alt="Video" width="100%" border="0" style="display:block;width:100%;height:auto;border:0;" /></a>`,
         "padding:12px 0;", "center"
       );
     }
@@ -87,13 +106,16 @@ function renderBulletproofButton(c: Record<string, string>, gs: GlobalEmailStyle
   const tdBorder = isOutline ? `2px solid ${bgColor}` : "none";
   const aColor = isOutline ? bgColor : textColor;
 
-  const btnTable = `<table cellpadding="0" cellspacing="0" border="0" role="presentation"${fullWidth ? ' width="100%"' : ''} style="${fullWidth ? "width:100%;" : ""}"><tr><td align="center" bgcolor="${tdBg}" style="background-color:${tdBg};border:${tdBorder};border-radius:${radius}px;mso-border-alt:none;"><a href="${url}" target="_blank" style="display:inline-block;padding:12px 28px;color:${aColor};font-size:${fs}px;font-weight:600;font-family:${ff};text-decoration:none;text-align:center;mso-line-height-rule:exactly;${fullWidth ? "width:100%;box-sizing:border-box;" : ""}">${text}</a></td></tr></table>`;
+  const tableAlign = fullWidth ? "left" : "center";
+  const tableStyle = fullWidth ? "width:100%;" : "margin:0 auto;";
+  const btnTable = `<table cellpadding="0" cellspacing="0" border="0" role="presentation" align="${tableAlign}"${fullWidth ? ' width="100%"' : ""} style="${tableStyle}"><tr><td align="center" bgcolor="${tdBg}" style="background-color:${tdBg};border:${tdBorder};border-radius:${radius}px;mso-border-alt:none;"><a href="${url}" target="_blank" style="display:inline-block;padding:12px 28px;color:${aColor};font-size:${fs}px;font-weight:600;font-family:${ff};text-decoration:none;text-align:center;mso-line-height-rule:exactly;${fullWidth ? "width:100%;box-sizing:border-box;" : ""}">${text}</a></td></tr></table>`;
 
-  // VML bulletproof for Outlook
   const w = fullWidth ? "100%" : "auto";
-  const vml = `<!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${url}" style="height:auto;v-text-anchor:middle;width:${w};" arcsize="${Math.round(parseInt(radius) / 20 * 100)}%" ${isOutline ? `strokecolor="${bgColor}" strokeweight="2px" fillcolor="transparent"` : `strokecolor="${bgColor}" fillcolor="${bgColor}"`}><w:anchorlock/><center style="color:${aColor};font-family:${ff};font-size:${fs}px;font-weight:600;">${text}</center></v:roundrect><![endif]--><!--[if !mso]><!-->${btnTable}<!--<![endif]-->`;
+  const vml = `<!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${url}" style="height:auto;v-text-anchor:middle;width:${w};" arcsize="${Math.round(((parseInt(radius, 10) || 8) / 20) * 100)}%" ${isOutline ? `strokecolor="${bgColor}" strokeweight="2px" fillcolor="transparent"` : `strokecolor="${bgColor}" fillcolor="${bgColor}"`}><w:anchorlock/><center style="color:${aColor};font-family:${ff};font-size:${fs}px;font-weight:600;">${text}</center></v:roundrect><![endif]--><!--[if !mso]><!-->${btnTable}<!--<![endif]-->`;
 
-  return wrap(vml, p, align);
+  const centeredBlock = `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"><tr><td align="center" style="padding:0;mso-line-height-rule:exactly;">${vml}</td></tr></table>`;
+
+  return wrap(centeredBlock, p, align);
 }
 
 function renderBlockHtml(block: EmailBlock, gs: GlobalEmailStyles): string {
@@ -121,23 +143,53 @@ function renderBlockHtml(block: EmailBlock, gs: GlobalEmailStyles): string {
 
     case "columns": {
       const layout = COLUMN_LAYOUTS.find(l => l.value === (c.layout || "50-50")) || COLUMN_LAYOUTS[0];
-      const gap = parseInt(c.gap || "16");
-      const emailW = parseInt(gs.emailWidth) || 600;
-      const cols = (block.columns || []).map((col, i) => {
-        const colW = Math.round(emailW * layout.widths[i] / 100);
-        return `<!--[if mso]><td width="${colW}" valign="top" style="width:${colW}px;"><![endif]--><td style="width:${layout.widths[i]}%;vertical-align:top;padding:0 ${gap / 2}px;" valign="top">${col.map(inner => renderInnerBlockHtml(inner, gs)).join("")}</td><!--[if mso]></td><![endif]-->`;
-      }).join("");
-      return wrap(
-        `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"><tr>${cols}</tr></table>`,
-        p
-      );
+      const gap = parseInt(c.gap || "16", 10);
+      const emailW = parseInt(gs.emailWidth, 10) || 600;
+      const colArrays = block.columns || [];
+      const n = colArrays.length;
+      if (n === 0) {
+        return wrap("", p);
+      }
+      let widthsPct = Array.from({ length: n }, (_, i) => layout.widths[i] ?? 100 / n);
+      const pctSum = widthsPct.reduce((a, b) => a + b, 0);
+      if (pctSum > 0) {
+        widthsPct = widthsPct.map((w) => (w / pctSum) * 100);
+      }
+      const totalGap = Math.max(0, n - 1) * gap;
+      const available = emailW - totalGap;
+      const pxWidths = widthsPct.map((pct) => Math.floor((available * pct) / 100));
+      const sumPx = pxWidths.reduce((a, b) => a + b, 0);
+      if (sumPx < available && pxWidths.length > 0) {
+        pxWidths[pxWidths.length - 1] += available - sumPx;
+      }
+
+      const fluidCells = colArrays
+        .map((col, i) => {
+          const inner = col.map((innerBlock) => renderInnerBlockHtml(innerBlock, gs)).join("");
+          const pct = widthsPct[i] ?? 100 / n;
+          return `<td style="width:${pct}%;vertical-align:top;padding:0 ${gap / 2}px;" valign="top">${inner}</td>`;
+        })
+        .join("");
+
+      const msoCells = colArrays
+        .map((col, i) => {
+          const inner = col.map((innerBlock) => renderInnerBlockHtml(innerBlock, gs)).join("");
+          const pw = pxWidths[i] ?? Math.floor(available / n);
+          return `<td width="${pw}" valign="top" style="width:${pw}px;vertical-align:top;padding:0 ${gap / 2}px;">${inner}</td>`;
+        })
+        .join("");
+
+      const fluidTable = `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"><tr>${fluidCells}</tr></table>`;
+      const msoTable = `<!--[if mso]><table role="presentation" width="${emailW}" cellpadding="0" cellspacing="0" border="0" align="center"><tr>${msoCells}</tr></table><![endif]--><!--[if !mso]><!-->${fluidTable}<!--<![endif]-->`;
+
+      return wrap(msoTable, p);
     }
 
     case "footer":
       return `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"><tr><td align="center" style="padding:24px 16px;color:${c.color || "#9ca3af"};font-size:${c.fontSize || "12"}px;font-family:${ff};mso-line-height-rule:exactly;">
         <p style="margin:0 0 8px;">${c.text}</p>
         ${c.address ? `<p style="margin:0 0 8px;">${c.address}</p>` : ""}
-        ${c.showUnsubscribe === "true" ? `<a href="#" style="color:${c.color || "#9ca3af"};text-decoration:underline;">${c.unsubscribeText || "Cancelar suscripción"}</a>` : ""}
+        ${c.showUnsubscribe === "true" ? `<a href="#" style="color:${gs.linkColor};text-decoration:underline;">${c.unsubscribeText || "Cancelar suscripción"}</a>` : ""}
       </td></tr></table>`;
 
     case "html":
@@ -150,8 +202,9 @@ function renderBlockHtml(block: EmailBlock, gs: GlobalEmailStyles): string {
       let items: { text: string; url: string }[] = [];
       try { items = JSON.parse(c.items || "[]"); } catch {}
       const sep = c.separator || "|";
+      const linkCol = c.color || gs.linkColor;
       const menuHtml = items.map((item, i) =>
-        `${i > 0 ? ` <span style="color:#cccccc;margin:0 8px;">${sep}</span> ` : ""}<a href="${item.url}" style="color:${c.color || "#3b82f6"};text-decoration:none;font-family:${ff};">${item.text}</a>`
+        `${i > 0 ? ` <span style="color:#cccccc;margin:0 8px;">${sep}</span> ` : ""}<a href="${item.url}" style="color:${linkCol};text-decoration:none;font-family:${ff};">${item.text}</a>`
       ).join("");
       return `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"><tr><td align="${c.align || "center"}" style="padding:12px 0;font-family:${ff};font-size:${c.fontSize || "14"}px;">${menuHtml}</td></tr></table>`;
     }
@@ -186,13 +239,12 @@ export function exportHtml(blocks: EmailBlock[], globalStyles: GlobalEmailStyles
 </noscript>
 <![endif]-->
 <style>
-  /* CSS Reset */
   body, table, td, a { -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; }
   table, td { mso-table-lspace:0pt; mso-table-rspace:0pt; }
-  img { -ms-interpolation-mode:bicubic; border:0; height:auto; line-height:100%; outline:none; text-decoration:none; }
-  body { height:100% !important; margin:0 !important; padding:0 !important; width:100% !important; }
-  a[x-apple-data-detectors] { color:inherit !important; text-decoration:none !important; font-size:inherit !important; font-family:inherit !important; font-weight:inherit !important; line-height:inherit !important; }
-  #MessageViewBody a { color:inherit; text-decoration:none; font-size:inherit; font-family:inherit; font-weight:inherit; line-height:inherit; }
+  img { -ms-interpolation-mode:bicubic; border:0; outline:none; text-decoration:none; }
+  body { margin:0 !important; padding:0 !important; width:100% !important; }
+  a[x-apple-data-detectors] { color:inherit !important; text-decoration:none !important; }
+  #MessageViewBody a { color:inherit; text-decoration:none; }
   .ExternalClass { width:100%; }
   .ExternalClass, .ExternalClass p, .ExternalClass span, .ExternalClass font, .ExternalClass td, .ExternalClass div { line-height:100%; }
   a { color:${globalStyles.linkColor}; }

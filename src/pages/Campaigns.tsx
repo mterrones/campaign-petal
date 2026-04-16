@@ -1,6 +1,6 @@
+import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { Plus, Search, Filter, MoreHorizontal } from "lucide-react";
-import { campaigns } from "@/data/mockData";
 import CampaignStatusBadge from "@/components/CampaignStatusBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,9 +10,42 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/context/AuthContext";
+import { getJson } from "@/lib/api";
+import {
+  type CampaignsListResponse,
+  platformCampaignsQueryKey,
+} from "@/lib/platformCampaigns";
 
 const Campaigns = () => {
   const navigate = useNavigate();
+  const { token } = useAuth();
+  const { data, isPending, isError } = useQuery({
+    queryKey: platformCampaignsQueryKey,
+    queryFn: () => getJson<CampaignsListResponse>("/v1/platform/campaigns", token!),
+    enabled: !!token,
+  });
+
+  const campaigns = data?.campaigns ?? [];
+
+  if (isPending) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-xl sm:text-2xl font-bold">Campañas</h1>
+        <p className="text-muted-foreground text-sm">Cargando campañas…</p>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-xl sm:text-2xl font-bold">Campañas</h1>
+        <p className="text-destructive text-sm">No se pudieron cargar las campañas.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -37,80 +70,86 @@ const Campaigns = () => {
         </Button>
       </div>
 
-      {/* Mobile cards */}
-      <div className="md:hidden space-y-3">
-        {campaigns.map((c) => (
-          <Link key={c.id} to={`/reports/${c.id}`} className="block bg-card rounded-xl border shadow-sm p-4 hover:shadow-md transition-shadow">
-            <div className="flex items-start justify-between mb-2">
-              <div className="min-w-0 flex-1">
-                <p className="font-medium text-sm truncate">{c.name}</p>
-                <p className="text-xs text-muted-foreground truncate">{c.subject}</p>
-              </div>
-              <CampaignStatusBadge status={c.status} />
-            </div>
-            <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground mt-3">
-              <div><span className="block text-foreground font-semibold">{c.recipients.toLocaleString()}</span>Dest.</div>
-              <div><span className="block text-foreground font-semibold">{c.opened.toLocaleString()}</span>Abiertos</div>
-              <div><span className="block text-foreground font-semibold">{c.clicked.toLocaleString()}</span>Clicks</div>
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">{c.sentAt || c.scheduledAt || c.createdAt}</p>
-          </Link>
-        ))}
-      </div>
-
-      {/* Desktop table */}
-      <div className="hidden md:block bg-card rounded-xl border shadow-sm overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nombre</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead className="text-right">Destinatarios</TableHead>
-              <TableHead className="text-right">Entregados</TableHead>
-              <TableHead className="text-right">Abiertos</TableHead>
-              <TableHead className="text-right">Clicks</TableHead>
-              <TableHead className="text-right">Rebotados</TableHead>
-              <TableHead>Fecha</TableHead>
-              <TableHead></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+      {campaigns.length === 0 ? (
+        <p className="text-sm text-muted-foreground py-8 text-center border rounded-xl bg-card">
+          Aún no tienes campañas. Crea una nueva para empezar.
+        </p>
+      ) : (
+        <>
+          <div className="md:hidden space-y-3">
             {campaigns.map((c) => (
-              <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50">
-                <TableCell>
-                  <Link to={`/reports/${c.id}`} className="hover:underline">
-                    <p className="font-medium text-sm">{c.name}</p>
-                    <p className="text-xs text-muted-foreground">{c.subject}</p>
-                  </Link>
-                </TableCell>
-                <TableCell><CampaignStatusBadge status={c.status} /></TableCell>
-                <TableCell className="text-right text-sm">{c.recipients.toLocaleString()}</TableCell>
-                <TableCell className="text-right text-sm">{c.delivered.toLocaleString()}</TableCell>
-                <TableCell className="text-right text-sm">{c.opened.toLocaleString()}</TableCell>
-                <TableCell className="text-right text-sm">{c.clicked.toLocaleString()}</TableCell>
-                <TableCell className="text-right text-sm">{c.bounced.toLocaleString()}</TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  {c.sentAt || c.scheduledAt || c.createdAt}
-                </TableCell>
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreHorizontal className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => navigate(`/reports/${c.id}`)}>Ver reporte</DropdownMenuItem>
-                      <DropdownMenuItem>Duplicar</DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive">Eliminar</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
+              <Link key={c.id} to={`/reports/campaigns/${c.id}`} className="block bg-card rounded-xl border shadow-sm p-4 hover:shadow-md transition-shadow">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-sm truncate">{c.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{c.subject}</p>
+                  </div>
+                  <CampaignStatusBadge status={c.status} />
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground mt-3">
+                  <div><span className="block text-foreground font-semibold">{c.recipients.toLocaleString()}</span>Dest.</div>
+                  <div><span className="block text-foreground font-semibold">{c.opened.toLocaleString()}</span>Abiertos</div>
+                  <div><span className="block text-foreground font-semibold">{c.clicked.toLocaleString()}</span>Clicks</div>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">{c.sentAt || c.scheduledAt || c.createdAt}</p>
+              </Link>
             ))}
-          </TableBody>
-        </Table>
-      </div>
+          </div>
+
+          <div className="hidden md:block bg-card rounded-xl border shadow-sm overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nombre</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead className="text-right">Destinatarios</TableHead>
+                  <TableHead className="text-right">Entregados</TableHead>
+                  <TableHead className="text-right">Abiertos</TableHead>
+                  <TableHead className="text-right">Clicks</TableHead>
+                  <TableHead className="text-right">Rebotados</TableHead>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {campaigns.map((c) => (
+                  <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50">
+                    <TableCell>
+                      <Link to={`/reports/campaigns/${c.id}`} className="hover:underline">
+                        <p className="font-medium text-sm">{c.name}</p>
+                        <p className="text-xs text-muted-foreground">{c.subject}</p>
+                      </Link>
+                    </TableCell>
+                    <TableCell><CampaignStatusBadge status={c.status} /></TableCell>
+                    <TableCell className="text-right text-sm">{c.recipients.toLocaleString()}</TableCell>
+                    <TableCell className="text-right text-sm">{c.delivered.toLocaleString()}</TableCell>
+                    <TableCell className="text-right text-sm">{c.opened.toLocaleString()}</TableCell>
+                    <TableCell className="text-right text-sm">{c.clicked.toLocaleString()}</TableCell>
+                    <TableCell className="text-right text-sm">{c.bounced.toLocaleString()}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {c.sentAt || c.scheduledAt || c.createdAt}
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => navigate(`/reports/campaigns/${c.id}`)}>Ver reporte</DropdownMenuItem>
+                          <DropdownMenuItem>Duplicar</DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive">Eliminar</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </>
+      )}
     </div>
   );
 };

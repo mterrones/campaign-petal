@@ -1,6 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Save, Send, GripVertical, Trash2, Copy, Undo2, Redo2, Download, Monitor, Smartphone, Settings, Code, PanelRight, LayoutGrid } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
+import { ApiError, patchJson, postJson } from "@/lib/api";
+import {
+  platformCampaignMessagesQueryKey,
+  platformCampaignQueryKey,
+  platformCampaignsQueryKey,
+  type PlatformCampaign,
+} from "@/lib/platformCampaigns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +18,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 import { useEmailEditor } from "@/components/email-editor/useEmailEditor";
@@ -18,19 +35,96 @@ import { PropertiesPanel } from "@/components/email-editor/PropertiesPanel";
 import { GlobalStyles } from "@/components/email-editor/GlobalStyles";
 import { TemplateSelector } from "@/components/email-editor/TemplateSelector";
 import { exportHtml } from "@/components/email-editor/htmlExport";
+import { defaultDirectories } from "@/data/mockData";
+import {
+  countActiveEmailsForAgenda,
+  getActiveEmailsForAgenda,
+} from "@/lib/contactLists";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+type SendEmailResponse = {
+  id: string;
+  deliveryStatus: string;
+  errorDetail?: string | null;
+};
+
+type CreateCampaignResponse = {
+  campaign: PlatformCampaign;
+};
+
+type PatchCampaignResponse = {
+  campaign: PlatformCampaign;
+};
+
+type SendBulkResponse = {
+  succeeded: number;
+  failed: { email: string; error: string }[];
+  attempted: number;
+};
 
 const EmailEditor = () => {
   const editor = useEmailEditor();
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+  const campaignInitRef = useRef(false);
+  const [campaignId, setCampaignId] = useState<string | null>(null);
   const isMobile = useIsMobile();
   const [htmlCode, setHtmlCode] = useState("");
   const [htmlDirty, setHtmlDirty] = useState(false);
   const [showBlocks, setShowBlocks] = useState(false);
   const [showProps, setShowProps] = useState(false);
+  const [sendDialogOpen, setSendDialogOpen] = useState(false);
+  const [sendStep, setSendStep] = useState<"test" | "agenda">("test");
+  const [sendTo, setSendTo] = useState("");
+  const [sendSubject, setSendSubject] = useState("");
+  const [selectedAgendaId, setSelectedAgendaId] = useState("all");
+  const [sendSubmitting, setSendSubmitting] = useState(false);
 
   const selectedBlockData = editor.blocks.find(b => b.id === editor.selectedBlock) || null;
   const selectedInnerData = editor.selectedInner
     ? editor.blocks.find(b => b.id === editor.selectedInner!.blockId)?.columns?.[editor.selectedInner!.colIndex]?.find(i => i.id === editor.selectedInner!.innerId) || null
     : null;
+
+  useEffect(() => {
+    if (!token || editor.showTemplateSelector) return;
+    if (campaignInitRef.current) return;
+    campaignInitRef.current = true;
+    const subjectLine = editor.subject.trim();
+    const displayName = subjectLine || "Untitled";
+    void postJson<CreateCampaignResponse>(
+      "/v1/platform/campaigns",
+      { name: displayName, subject: subjectLine },
+      { token },
+    )
+      .then((res) => setCampaignId(res.campaign.id))
+      .catch(() => {
+        campaignInitRef.current = false;
+        toast.error("No se pudo preparar la campaña");
+      });
+  }, [token, editor.showTemplateSelector]);
+
+  useEffect(() => {
+    if (!token || !campaignId) return;
+    const handle = window.setTimeout(() => {
+      void patchJson<PatchCampaignResponse>(
+        `/v1/platform/campaigns/${campaignId}`,
+        { subject: editor.subject },
+        { token },
+      )
+        .then(() => {
+          void queryClient.invalidateQueries({ queryKey: platformCampaignsQueryKey });
+          void queryClient.invalidateQueries({ queryKey: platformCampaignQueryKey(campaignId) });
+        })
+        .catch(() => {});
+    }, 500);
+    return () => window.clearTimeout(handle);
+  }, [editor.subject, campaignId, token, queryClient]);
 
   // Sync HTML code when switching to code tab
   useEffect(() => {
@@ -70,6 +164,145 @@ const EmailEditor = () => {
     const html = exportHtml(editor.blocks, editor.globalStyles, editor.subject);
     navigator.clipboard.writeText(html);
     toast.success("HTML copiado al portapapeles");
+  };
+
+  const buildHtmlForSend = (subjectLine: string) => {
+    if (editor.activeTab === "code" && htmlDirty && htmlCode.trim()) {
+      return htmlCode.trim();
+    }
+    return exportHtml(editor.blocks, editor.globalStyles, subjectLine);
+  };
+
+  const openSendDialog = () => {
+    setSendStep("test");
+    setSendSubject(editor.subject.trim());
+    setSendTo("");
+    setSelectedAgendaId("all");
+    setSendDialogOpen(true);
+  };
+
+  const invalidateCampaignQueries = () => {
+    void queryClient.invalidateQueries({ queryKey: platformCampaignsQueryKey });
+    if (campaignId) {
+      void queryClient.invalidateQueries({ queryKey: platformCampaignQueryKey(campaignId) });
+      void queryClient.invalidateQueries({ queryKey: platformCampaignMessagesQueryKey(campaignId) });
+    }
+  };
+
+  const handleSendTest = async () => {
+    const to = sendTo.trim();
+    const subject = sendSubject.trim();
+    if (!token) {
+      toast.error("Inicia sesión para enviar");
+      return;
+    }
+    if (!to || !subject) {
+      toast.error("Indica email de prueba y asunto");
+      return;
+    }
+    const html = buildHtmlForSend(subject);
+    if (!html) {
+      toast.error("No hay contenido para enviar");
+      return;
+    }
+    setSendSubmitting(true);
+    try {
+      const res = await postJson<SendEmailResponse>(
+        "/v1/platform/send-email",
+        {
+          to,
+          subject,
+          html,
+          ...(campaignId ? { campaignId } : {}),
+        },
+        { token },
+      );
+      if (res.deliveryStatus === "sent") {
+        invalidateCampaignQueries();
+        toast.success("Prueba enviada. Continúa con la agenda.");
+        setSendStep("agenda");
+      } else {
+        toast.error(res.errorDetail || "No se pudo completar el envío (SMTP)");
+      }
+    } catch (e) {
+      if (e instanceof ApiError) {
+        if (e.status === 429) {
+          toast.error("Demasiados envíos seguidos. Espera un momento.");
+        } else if (e.status === 502) {
+          const body = e.body as SendEmailResponse | { error?: string };
+          const detail =
+            typeof body === "object" && body && "errorDetail" in body
+              ? (body as SendEmailResponse).errorDetail
+              : null;
+          toast.error(detail || "Error al entregar el correo");
+        } else {
+          toast.error("No se pudo enviar la prueba");
+        }
+      } else {
+        toast.error("Error de red al enviar");
+      }
+    } finally {
+      setSendSubmitting(false);
+    }
+  };
+
+  const handleBulkSend = async () => {
+    const subject = sendSubject.trim();
+    if (!token) {
+      toast.error("Inicia sesión para enviar");
+      return;
+    }
+    if (!subject) {
+      toast.error("Indica el asunto");
+      return;
+    }
+    const recipients = getActiveEmailsForAgenda(selectedAgendaId);
+    if (recipients.length === 0) {
+      toast.error("No hay contactos activos en esta agenda");
+      return;
+    }
+    const html = buildHtmlForSend(subject);
+    if (!html) {
+      toast.error("No hay contenido para enviar");
+      return;
+    }
+    setSendSubmitting(true);
+    try {
+      const res = await postJson<SendBulkResponse>(
+        "/v1/platform/send-bulk",
+        {
+          to: recipients,
+          subject,
+          html,
+          ...(campaignId ? { campaignId } : {}),
+        },
+        { token },
+      );
+      invalidateCampaignQueries();
+      if (res.failed.length === 0) {
+        toast.success(`Enviado a ${res.succeeded} destinatario(s)`);
+      } else {
+        toast.warning(
+          `Enviados: ${res.succeeded}, fallidos: ${res.failed.length}${
+            res.succeeded === 0 ? ". Revisa SMTP o destinatarios." : ""
+          }`,
+        );
+      }
+      setSendDialogOpen(false);
+      setSendStep("test");
+    } catch (e) {
+      if (e instanceof ApiError) {
+        if (e.status === 429) {
+          toast.error("Límite de envíos masivos. Espera unos minutos.");
+        } else {
+          toast.error("No se pudo completar el envío masivo");
+        }
+      } else {
+        toast.error("Error de red al enviar");
+      }
+    } finally {
+      setSendSubmitting(false);
+    }
   };
 
   if (editor.showTemplateSelector) {
@@ -130,7 +363,9 @@ const EmailEditor = () => {
             <Button variant="outline" size="sm" onClick={handleCopyHtml}><Copy className="w-3.5 h-3.5 mr-1.5" />Copiar HTML</Button>
             <Button variant="outline" size="sm" onClick={handleExportHtml}><Download className="w-3.5 h-3.5 mr-1.5" />Exportar</Button>
             <Button variant="outline" size="sm"><Save className="w-3.5 h-3.5 mr-1.5" />Guardar</Button>
-            <Button size="sm"><Send className="w-3.5 h-3.5 mr-1.5" />Enviar</Button>
+            <Button size="sm" onClick={openSendDialog}>
+              <Send className="w-3.5 h-3.5 mr-1.5" />Enviar
+            </Button>
           </div>
         </div>
       </div>
@@ -141,7 +376,9 @@ const EmailEditor = () => {
           <Button variant="outline" size="sm" onClick={handleCopyHtml}><Copy className="w-3.5 h-3.5 mr-1" />Copiar</Button>
           <Button variant="outline" size="sm" onClick={handleExportHtml}><Download className="w-3.5 h-3.5 mr-1" />Exportar</Button>
           <Button variant="outline" size="sm"><Save className="w-3.5 h-3.5 mr-1" />Guardar</Button>
-          <Button size="sm"><Send className="w-3.5 h-3.5 mr-1" />Enviar</Button>
+          <Button size="sm" onClick={openSendDialog}>
+            <Send className="w-3.5 h-3.5 mr-1" />Enviar
+          </Button>
         </div>
       )}
 
@@ -426,6 +663,112 @@ const EmailEditor = () => {
           </Sheet>
         )}
       </div>
+
+      <Dialog
+        open={sendDialogOpen}
+        onOpenChange={(open) => {
+          setSendDialogOpen(open);
+          if (!open) setSendStep("test");
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          {sendStep === "test" ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Paso 1: correo de prueba</DialogTitle>
+                <DialogDescription>
+                  Envía una prueba real al email indicado con el HTML y asunto actuales. Si llega bien, podrás elegir una agenda.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                <div className="space-y-2">
+                  <Label htmlFor="send-to">Email de pruebas</Label>
+                  <Input
+                    id="send-to"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="tu@email.com"
+                    value={sendTo}
+                    onChange={(e) => setSendTo(e.target.value)}
+                    disabled={sendSubmitting}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="send-subject">Asunto</Label>
+                  <Input
+                    id="send-subject"
+                    type="text"
+                    placeholder="Asunto del mensaje"
+                    value={sendSubject}
+                    onChange={(e) => setSendSubject(e.target.value)}
+                    disabled={sendSubmitting}
+                  />
+                </div>
+              </div>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button type="button" variant="outline" onClick={() => setSendDialogOpen(false)} disabled={sendSubmitting}>
+                  Cancelar
+                </Button>
+                <Button type="button" onClick={handleSendTest} disabled={sendSubmitting}>
+                  {sendSubmitting ? "Enviando…" : "Enviar prueba"}
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>Paso 2: agenda de contactos</DialogTitle>
+                <DialogDescription>
+                  Elige la lista de destinatarios (solo contactos activos). Se usará el mismo asunto y HTML que en la prueba.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                <div className="space-y-2">
+                  <Label htmlFor="agenda-select">Agenda</Label>
+                  <Select value={selectedAgendaId} onValueChange={setSelectedAgendaId} disabled={sendSubmitting}>
+                    <SelectTrigger id="agenda-select">
+                      <SelectValue placeholder="Selecciona agenda" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {defaultDirectories.map((d) => (
+                        <SelectItem key={d.id} value={d.id}>
+                          {d.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-sm text-muted-foreground">
+                    {countActiveEmailsForAgenda(selectedAgendaId)} destinatario(s) activo(s)
+                  </p>
+                </div>
+              </div>
+              <DialogFooter className="gap-2 sm:gap-0 flex-col sm:flex-row">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setSendStep("test")}
+                  disabled={sendSubmitting}
+                  className="w-full sm:w-auto"
+                >
+                  Atrás
+                </Button>
+                <div className="flex gap-2 w-full sm:w-auto sm:ml-auto">
+                  <Button type="button" variant="outline" onClick={() => setSendDialogOpen(false)} disabled={sendSubmitting}>
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleBulkSend}
+                    disabled={sendSubmitting || countActiveEmailsForAgenda(selectedAgendaId) === 0}
+                  >
+                    {sendSubmitting ? "Enviando…" : "Enviar a la agenda"}
+                  </Button>
+                </div>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
