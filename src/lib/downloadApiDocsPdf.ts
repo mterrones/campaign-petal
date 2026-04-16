@@ -1,3 +1,5 @@
+import { mailingApiV1Path } from "@/lib/api";
+
 // Generates a printable HTML document in a new window and triggers the
 // native browser "Save as PDF" dialog. This avoids html2canvas/CSS-variable
 // issues that produced blank PDFs with html2pdf.js.
@@ -60,7 +62,7 @@ export async function downloadApiDocumentationPdf(
 <body>
   <div class="doc-header">
     <h1>Enviamas - Maillings API's</h1>
-    <p>API Key · POST y GET /v1/messages</p>
+    <p>API Key · POST y GET ${mailingApiV1Path}/messages</p>
   </div>
   <h2>Mensajes (API Key)</h2>
   ${apiKeyHtml}

@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { useAuth } from "@/context/AuthContext";
 import { formatDateTimeGmtMinus5 } from "@/lib/dateTimeGmtMinus5";
-import { getJson } from "@/lib/api";
+import { getJson, mailingApiV1Path } from "@/lib/api";
 import {
   type CampaignMessagesResponse,
   type CampaignOneResponse,
@@ -37,7 +37,10 @@ const CampaignReport = () => {
   const campaignQuery = useQuery({
     queryKey: platformCampaignQueryKey(id),
     queryFn: () =>
-      getJson<CampaignOneResponse>(`/v1/platform/campaigns/${id}`, token!),
+      getJson<CampaignOneResponse>(
+        `${mailingApiV1Path}/platform/campaigns/${id}`,
+        token!,
+      ),
     enabled: !!token && !!id,
   });
 
@@ -49,7 +52,7 @@ const CampaignReport = () => {
         pageSize: String(MESSAGE_PAGE_SIZE),
       });
       return getJson<CampaignMessagesResponse>(
-        `/v1/platform/campaigns/${id}/messages?${sp.toString()}`,
+        `${mailingApiV1Path}/platform/campaigns/${id}/messages?${sp.toString()}`,
         token!,
       );
     },

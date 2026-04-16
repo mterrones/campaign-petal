@@ -1,4 +1,4 @@
-import { getJson } from "@/lib/api";
+import { getJson, mailingApiV1Path } from "@/lib/api";
 
 export const platformApiMessagesReportQueryKey = (
   from: string,
@@ -31,7 +31,7 @@ export function fetchApiMessagesReport(
 ): Promise<ApiMessagesReportResponse> {
   const sp = new URLSearchParams({ from, to });
   return getJson<ApiMessagesReportResponse>(
-    `/v1/platform/reports/api-messages?${sp.toString()}`,
+    `${mailingApiV1Path}/platform/reports/api-messages?${sp.toString()}`,
     token,
   );
 }
@@ -89,7 +89,7 @@ export function fetchApiMessagesListPage(
     limit: String(limit),
   });
   return getJson<ApiMessagesListResponse>(
-    `/v1/platform/reports/api-messages/list?${sp.toString()}`,
+    `${mailingApiV1Path}/platform/reports/api-messages/list?${sp.toString()}`,
     token,
   );
 }
@@ -105,7 +105,7 @@ export function fetchApiMessagePreview(
   messageId: string,
 ): Promise<ApiMessagePreviewResponse> {
   return getJson<ApiMessagePreviewResponse>(
-    `/v1/platform/reports/api-messages/${encodeURIComponent(messageId)}/preview`,
+    `${mailingApiV1Path}/platform/reports/api-messages/${encodeURIComponent(messageId)}/preview`,
     token,
   );
 }

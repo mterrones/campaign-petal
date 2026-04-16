@@ -11,42 +11,53 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Send, Inbox, Code2, Copy } from "lucide-react";
+import { getApiBaseUrl, mailingApiV1Path } from "@/lib/api";
 
 type ApiKeyDocsProps = {
-  apiBase: string;
   copyToClipboard: (text: string) => void;
 };
 
+function AuthApiKeyDocsDescription() {
+  return (
+    <span className="block space-y-2">
+      <span className="block">
+        Autenticación por API Key:{" "}
+        <code className="bg-muted px-1 rounded">{"--header 'x-api-key: {api key}'"}</code>
+      </span>
+      <span className="block">
+        o Autenticación Basic Auth{" "}
+        <code className="bg-muted px-1 rounded break-all">
+          {"--header 'authorization: Basic ZGFzZDpzYWRhc2Rhc2Q='"}
+        </code>
+      </span>
+    </span>
+  );
+}
+
 export const ApiKeyMessagesDocs = forwardRef<HTMLDivElement, ApiKeyDocsProps>(
-  function ApiKeyMessagesDocs({ apiBase, copyToClipboard }, ref) {
-    const postUrl = `${apiBase}/v1/messages`;
-    const getUrl = `${apiBase}/v1/messages/<id>`;
+  function ApiKeyMessagesDocs({ copyToClipboard }, ref) {
+    const apiBase = getApiBaseUrl();
+    const postUrl = `${apiBase}${mailingApiV1Path}/messages`;
+    const getUrl = `${apiBase}${mailingApiV1Path}/messages/<id>`;
     const curlPost = `curl -X POST "${postUrl}" \\
   -H "Content-Type: application/json" \\
-  -H "X-Api-Key: mek_YOUR_KEY" \\
+  --header 'x-api-key: mek_YOUR_KEY' \\
   -d '{"to":"dest@example.com","subject":"Hola","html":"<p>Texto</p>"}'`;
 
     return (
       <div ref={ref} className="space-y-4">
         <p className="text-xs text-muted-foreground">
-          Base: <code className="bg-muted px-1 rounded">{apiBase}</code>{" "}
-          (<code className="bg-muted px-1 rounded">VITE_API_BASE_URL</code>)
+          Base: <code className="bg-muted px-1 rounded">{apiBase}</code>
         </p>
 
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base font-semibold">
               <Send className="w-5 h-5 text-primary shrink-0" />
-              POST /v1/messages
+              POST {`${mailingApiV1Path}/messages`}
             </CardTitle>
-            <CardDescription className="text-xs leading-relaxed space-y-1">
-              <span className="block">
-                Auth: <code className="bg-muted px-1 rounded">X-Api-Key</code>,{" "}
-                <code className="bg-muted px-1 rounded">Authorization: Bearer &lt;mek_…&gt;</code>, o Basic con la clave en la parte derecha.
-              </span>
-              <span className="block">
-                Requiere <code className="bg-muted px-1 rounded">client_id</code> en la cuenta. Sin cliente: <strong>403</strong>.
-              </span>
+            <CardDescription className="text-xs leading-relaxed">
+              <AuthApiKeyDocsDescription />
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 pt-0">
@@ -75,7 +86,7 @@ export const ApiKeyMessagesDocs = forwardRef<HTMLDivElement, ApiKeyDocsProps>(
               <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Rate limit
               </Label>
-              <p className="text-xs text-muted-foreground mt-1">2 req/s por clave o usuario. Exceso: <strong>429</strong>.</p>
+              <p className="text-xs text-muted-foreground mt-1">2 request por segundo</p>
             </div>
 
             <Separator />
@@ -184,11 +195,10 @@ export const ApiKeyMessagesDocs = forwardRef<HTMLDivElement, ApiKeyDocsProps>(
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base font-semibold">
               <Inbox className="w-5 h-5 text-primary shrink-0" />
-              GET /v1/messages/:id
+              GET {`${mailingApiV1Path}/messages/:id`}
             </CardTitle>
             <CardDescription className="text-xs leading-relaxed">
-              Misma auth que POST. Filtra por <code className="bg-muted px-1 rounded">client_id</code> de la clave.{" "}
-              <strong>404</strong> si el mensaje no existe o no es de ese cliente.
+              <AuthApiKeyDocsDescription />
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 pt-0">
@@ -239,8 +249,8 @@ export const ApiKeyMessagesDocs = forwardRef<HTMLDivElement, ApiKeyDocsProps>(
                 cURL
               </Label>
               <pre className="bg-muted rounded-lg p-3 mt-2 text-[11px] overflow-x-auto leading-snug">
-{`curl "${apiBase}/v1/messages/<UUID>" \\
-  -H "X-Api-Key: mek_YOUR_KEY"`}
+{`curl "${apiBase}${mailingApiV1Path}/messages/<UUID>" \\
+  --header 'x-api-key: mek_YOUR_KEY'`}
               </pre>
             </div>
           </CardContent>

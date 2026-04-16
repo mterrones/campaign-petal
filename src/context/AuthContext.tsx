@@ -7,7 +7,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { getJson, getStoredToken, postJson, setStoredToken } from "@/lib/api";
+import {
+  getJson,
+  getStoredToken,
+  mailingApiV1Path,
+  postJson,
+  setStoredToken,
+} from "@/lib/api";
 
 export type AuthUser = {
   id: string;
@@ -52,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(stored);
     void (async () => {
       try {
-        const me = await getJson<MeResponse>("/v1/auth/me", stored);
+        const me = await getJson<MeResponse>(`${mailingApiV1Path}/auth/me`, stored);
         setUser(me.user);
       } catch {
         setStoredToken(null);
@@ -65,7 +71,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
-    const res = await postJson<LoginResponse>("/v1/auth/login", { email, password });
+    const res = await postJson<LoginResponse>(`${mailingApiV1Path}/auth/login`, {
+      email,
+      password,
+    });
     setStoredToken(res.token);
     setToken(res.token);
     setUser(res.user);

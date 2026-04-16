@@ -10,7 +10,7 @@ import ApexChart from "@/components/charts/ApexChart";
 import { apexPalette, baseChartOptions } from "@/lib/apexTheme";
 import type { ApexOptions } from "apexcharts";
 import { useAuth } from "@/context/AuthContext";
-import { getJson } from "@/lib/api";
+import { getJson, mailingApiV1Path } from "@/lib/api";
 import {
   type CampaignsListResponse,
   type PlatformCampaign,
@@ -20,7 +20,10 @@ import {
   fetchDailySendQuota,
   platformDailySendQuotaQueryKey,
 } from "@/lib/platformDailyQuota";
-import { contacts } from "@/data/mockData";
+import {
+  fetchContactsStats,
+  platformContactsStatsQueryKey,
+} from "@/lib/platformContacts";
 
 type ChartRow = { name: string; enviados: number; abiertos: number; clicks: number };
 
@@ -55,7 +58,11 @@ const Dashboard = () => {
   const { token } = useAuth();
   const { data, isPending, isError } = useQuery({
     queryKey: platformCampaignsQueryKey,
-    queryFn: () => getJson<CampaignsListResponse>("/v1/platform/campaigns", token!),
+    queryFn: () =>
+      getJson<CampaignsListResponse>(
+        `${mailingApiV1Path}/platform/campaigns`,
+        token!,
+      ),
     enabled: !!token,
   });
 
@@ -65,12 +72,15 @@ const Dashboard = () => {
     enabled: !!token,
   });
 
+  const contactsStatsQuery = useQuery({
+    queryKey: platformContactsStatsQueryKey,
+    queryFn: () => fetchContactsStats(token!),
+    enabled: !!token,
+  });
+
   const campaigns = data?.campaigns ?? [];
 
-  const activeContactCount = useMemo(
-    () => contacts.filter((c) => c.status === "active").length,
-    [],
-  );
+  const activeContactCount = contactsStatsQuery.data?.activeCount ?? 0;
 
   const metrics = useMemo(() => {
     const sentCount = campaigns.filter((c) => c.status === "sent").length;
@@ -138,8 +148,12 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         <StatCard
           title="Contactos activos"
-          value={activeContactCount.toLocaleString()}
-          change="En tus listas locales"
+          value={
+            contactsStatsQuery.isLoading
+              ? "…"
+              : activeContactCount.toLocaleString()
+          }
+          change="En tus directorios"
           changeType="neutral"
           icon={Users}
         />

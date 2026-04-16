@@ -38,6 +38,7 @@ import {
   platformApiMessagesListQueryKey,
   platformApiMessagesReportQueryKey,
 } from "@/lib/platformReports";
+import { mailingApiV1Path } from "@/lib/api";
 import ApexChart from "@/components/charts/ApexChart";
 import { apexPalette, baseChartOptions } from "@/lib/apexTheme";
 import type { ApexOptions } from "apexcharts";
@@ -171,7 +172,11 @@ const ReportsApi = () => {
       <div>
         <h1 className="text-2xl font-bold">Reportes · API</h1>
         <p className="text-muted-foreground mt-1">
-          Envíos vía <code className="text-xs bg-muted px-1 rounded">POST /v1/messages</code> (sin campaña), filtrados por fecha de envío o creación.
+          Envíos vía{" "}
+          <code className="text-xs bg-muted px-1 rounded">
+            {`POST ${mailingApiV1Path}/messages`}
+          </code>{" "}
+          (sin campaña), filtrados por fecha de envío o creación.
         </p>
       </div>
 

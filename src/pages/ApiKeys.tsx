@@ -23,7 +23,12 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
-import { ApiError, getApiBaseUrl, getJson, postJson } from "@/lib/api";
+import {
+  ApiError,
+  getJson,
+  mailingApiV1Path,
+  postJson,
+} from "@/lib/api";
 import { downloadApiDocumentationPdf } from "@/lib/downloadApiDocsPdf";
 import { ApiKeyMessagesDocs } from "@/components/ApiKeysDocsPanels";
 import {
@@ -60,8 +65,6 @@ const ApiKeys = () => {
   const [activeTab, setActiveTab] = useState("keys");
   const [pdfLoading, setPdfLoading] = useState(false);
   const apiKeyDocRef = useRef<HTMLDivElement>(null);
-  const apiBase = getApiBaseUrl();
-
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast.success("Copiado al portapapeles");
@@ -69,7 +72,8 @@ const ApiKeys = () => {
 
   const keysQuery = useQuery({
     queryKey: ["platform-api-keys", user?.clientId],
-    queryFn: () => getJson<ApiKeyRow[]>("/v1/platform/api-keys", token!),
+    queryFn: () =>
+      getJson<ApiKeyRow[]>(`${mailingApiV1Path}/platform/api-keys`, token!),
     enabled: Boolean(token && user?.clientId),
   });
 
@@ -80,7 +84,7 @@ const ApiKeys = () => {
         throw new Error("LABEL_REQUIRED");
       }
       return postJson<CreateKeyResponse>(
-        "/v1/platform/api-keys",
+        `${mailingApiV1Path}/platform/api-keys`,
         { label },
         { token },
       );
@@ -107,7 +111,7 @@ const ApiKeys = () => {
   const revokeMutation = useMutation({
     mutationFn: (keyId: string) =>
       postJson<{ ok: boolean }>(
-        `/v1/platform/api-keys/${encodeURIComponent(keyId)}/revoke`,
+        `${mailingApiV1Path}/platform/api-keys/${encodeURIComponent(keyId)}/revoke`,
         {},
         { token },
       ),
@@ -210,7 +214,7 @@ const ApiKeys = () => {
               {createdKeyPlain && (
                 <div className="space-y-2">
                   <Label className="text-xs text-muted-foreground">
-                    Secreto (Bearer / X-Api-Key)
+                    Secreto (x-api-key o Basic Auth)
                   </Label>
                   <div className="flex gap-2">
                     <code className="text-xs bg-muted px-3 py-2 rounded-md flex-1 break-all">
@@ -373,7 +377,6 @@ const ApiKeys = () => {
         >
           <ApiKeyMessagesDocs
             ref={apiKeyDocRef}
-            apiBase={apiBase}
             copyToClipboard={copyToClipboard}
           />
         </TabsContent>

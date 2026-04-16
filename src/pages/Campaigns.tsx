@@ -11,7 +11,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/context/AuthContext";
-import { getJson } from "@/lib/api";
+import { getJson, mailingApiV1Path } from "@/lib/api";
 import {
   type CampaignsListResponse,
   platformCampaignsQueryKey,
@@ -22,7 +22,11 @@ const Campaigns = () => {
   const { token } = useAuth();
   const { data, isPending, isError } = useQuery({
     queryKey: platformCampaignsQueryKey,
-    queryFn: () => getJson<CampaignsListResponse>("/v1/platform/campaigns", token!),
+    queryFn: () =>
+      getJson<CampaignsListResponse>(
+        `${mailingApiV1Path}/platform/campaigns`,
+        token!,
+      ),
     enabled: !!token,
   });
 

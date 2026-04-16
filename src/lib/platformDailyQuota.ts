@@ -1,4 +1,4 @@
-import { getJson } from "@/lib/api";
+import { getJson, mailingApiV1Path } from "@/lib/api";
 
 export type DailySendQuotaResponse = {
   limit: number;
@@ -16,7 +16,7 @@ export function fetchDailySendQuota(
   token: string,
 ): Promise<DailySendQuotaResponse> {
   return getJson<DailySendQuotaResponse>(
-    "/v1/platform/daily-send-quota",
+    `${mailingApiV1Path}/platform/daily-send-quota`,
     token,
   );
 }

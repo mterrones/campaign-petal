@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Save, Send, GripVertical, Trash2, Copy, Undo2, Redo2, Download, Monitor, Smartphone, Settings, Code, PanelRight, LayoutGrid } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { emailTemplates } from "@/components/email-editor/templates";
@@ -8,7 +8,7 @@ import {
   saveUserTemplate,
 } from "@/lib/userTemplates";
 import { useAuth } from "@/context/AuthContext";
-import { ApiError, patchJson, postJson } from "@/lib/api";
+import { ApiError, mailingApiV1Path, patchJson, postJson } from "@/lib/api";
 import {
   platformCampaignMessagesQueryKey,
   platformCampaignQueryKey,
@@ -40,11 +40,12 @@ import { PropertiesPanel } from "@/components/email-editor/PropertiesPanel";
 import { GlobalStyles } from "@/components/email-editor/GlobalStyles";
 import { TemplateSelector } from "@/components/email-editor/TemplateSelector";
 import { exportHtml } from "@/components/email-editor/htmlExport";
-import { defaultDirectories } from "@/data/mockData";
 import {
-  countActiveEmailsForAgenda,
-  getActiveEmailsForAgenda,
-} from "@/lib/contactLists";
+  fetchActiveEmailsForAgenda,
+  fetchContactDirectories,
+  fetchContactsActiveCount,
+  platformContactDirectoriesQueryKey,
+} from "@/lib/platformContacts";
 import {
   Select,
   SelectContent,
@@ -105,6 +106,29 @@ const EmailEditor = () => {
   const [sendSubject, setSendSubject] = useState("");
   const [selectedAgendaId, setSelectedAgendaId] = useState("all");
   const [sendSubmitting, setSendSubmitting] = useState(false);
+
+  const directoriesQuery = useQuery({
+    queryKey: platformContactDirectoriesQueryKey,
+    queryFn: () => fetchContactDirectories(token!),
+    enabled: !!token,
+  });
+
+  const agendaOptions = useMemo(() => {
+    const rows = directoriesQuery.data?.directories ?? [];
+    return [{ id: "all", name: "Todos" }, ...rows.map((d) => ({ id: d.id, name: d.name }))];
+  }, [directoriesQuery.data]);
+
+  const activeAgendaCountQuery = useQuery({
+    queryKey: ["platform", "contacts", "active-count", selectedAgendaId],
+    queryFn: () =>
+      fetchContactsActiveCount(
+        token!,
+        selectedAgendaId === "all" ? "all" : selectedAgendaId,
+      ),
+    enabled: !!token && sendDialogOpen && sendStep === "agenda",
+  });
+
+  const agendaRecipientCount = activeAgendaCountQuery.data?.count ?? 0;
 
   const selectedBlockData = editor.blocks.find(b => b.id === editor.selectedBlock) || null;
   const selectedInnerData = editor.selectedInner
@@ -179,7 +203,7 @@ const EmailEditor = () => {
     const subjectLine = editor.subject.trim();
     const displayName = subjectLine || "Untitled";
     void postJson<CreateCampaignResponse>(
-      "/v1/platform/campaigns",
+      `${mailingApiV1Path}/platform/campaigns`,
       { name: displayName, subject: subjectLine },
       { token },
     )
@@ -195,7 +219,7 @@ const EmailEditor = () => {
     if (!token || !campaignId) return;
     const handle = window.setTimeout(() => {
       void patchJson<PatchCampaignResponse>(
-        `/v1/platform/campaigns/${campaignId}`,
+        `${mailingApiV1Path}/platform/campaigns/${campaignId}`,
         { subject: editor.subject },
         { token },
       )
@@ -290,7 +314,7 @@ const EmailEditor = () => {
     setSendSubmitting(true);
     try {
       const res = await postJson<SendEmailResponse>(
-        "/v1/platform/send-email",
+        `${mailingApiV1Path}/platform/send-email`,
         {
           to,
           subject,
@@ -342,7 +366,14 @@ const EmailEditor = () => {
       toast.error("Indica el asunto");
       return;
     }
-    const recipients = getActiveEmailsForAgenda(selectedAgendaId);
+    let recipients: string[];
+    try {
+      const res = await fetchActiveEmailsForAgenda(token, selectedAgendaId);
+      recipients = res.emails;
+    } catch {
+      toast.error("No se pudieron cargar los contactos de la agenda");
+      return;
+    }
     if (recipients.length === 0) {
       toast.error("No hay contactos activos en esta agenda");
       return;
@@ -355,7 +386,7 @@ const EmailEditor = () => {
     setSendSubmitting(true);
     try {
       const res = await postJson<SendBulkResponse>(
-        "/v1/platform/send-bulk",
+        `${mailingApiV1Path}/platform/send-bulk`,
         {
           to: recipients,
           subject,
@@ -365,6 +396,8 @@ const EmailEditor = () => {
         { token },
       );
       invalidateCampaignQueries();
+      void queryClient.invalidateQueries({ queryKey: platformContactDirectoriesQueryKey });
+      void queryClient.invalidateQueries({ queryKey: ["platform", "contacts"] });
       const n = res.enqueued.length;
       if (res.failed.length === 0) {
         toast.success(`${n} correo(s) en cola para envío`);
@@ -904,7 +937,7 @@ const EmailEditor = () => {
                       <SelectValue placeholder="Selecciona agenda" />
                     </SelectTrigger>
                     <SelectContent>
-                      {defaultDirectories.map((d) => (
+                      {agendaOptions.map((d) => (
                         <SelectItem key={d.id} value={d.id}>
                           {d.name}
                         </SelectItem>
@@ -912,7 +945,7 @@ const EmailEditor = () => {
                     </SelectContent>
                   </Select>
                   <p className="text-sm text-muted-foreground">
-                    {countActiveEmailsForAgenda(selectedAgendaId)} destinatario(s) activo(s)
+                    {activeAgendaCountQuery.isFetching ? "…" : agendaRecipientCount} destinatario(s) activo(s)
                   </p>
                 </div>
               </div>
@@ -933,7 +966,11 @@ const EmailEditor = () => {
                   <Button
                     type="button"
                     onClick={handleBulkSend}
-                    disabled={sendSubmitting || countActiveEmailsForAgenda(selectedAgendaId) === 0}
+                    disabled={
+                      sendSubmitting ||
+                      agendaRecipientCount === 0 ||
+                      activeAgendaCountQuery.isFetching
+                    }
                   >
                     {sendSubmitting ? "Enviando…" : "Enviar a la agenda"}
                   </Button>

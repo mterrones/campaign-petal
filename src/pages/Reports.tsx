@@ -5,7 +5,7 @@ import StatCard from "@/components/StatCard";
 import CampaignStatusBadge from "@/components/CampaignStatusBadge";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/context/AuthContext";
-import { getJson } from "@/lib/api";
+import { getJson, mailingApiV1Path } from "@/lib/api";
 import {
   type CampaignsListResponse,
   platformCampaignsQueryKey,
@@ -18,7 +18,11 @@ const Reports = () => {
   const { token } = useAuth();
   const { data, isPending, isError, error } = useQuery({
     queryKey: platformCampaignsQueryKey,
-    queryFn: () => getJson<CampaignsListResponse>("/v1/platform/campaigns", token!),
+    queryFn: () =>
+      getJson<CampaignsListResponse>(
+        `${mailingApiV1Path}/platform/campaigns`,
+        token!,
+      ),
     enabled: !!token,
   });
 

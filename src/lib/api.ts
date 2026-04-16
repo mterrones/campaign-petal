@@ -1,5 +1,7 @@
 const TOKEN_STORAGE_KEY = "enviamas_platform_token";
 
+export const mailingApiV1Path = "/mailling/v1";
+
 export function getApiBaseUrl(): string {
   const raw = import.meta.env.VITE_API_BASE_URL;
   if (raw !== undefined && String(raw).trim() !== "") {
@@ -91,4 +93,20 @@ export async function getJson<TResponse>(
     throw new ApiError(res.status, data);
   }
   return data as TResponse;
+}
+
+export async function deleteJson(
+  path: string,
+  token: string,
+): Promise<void> {
+  const res = await fetch(`${getApiBaseUrl()}${path}`, {
+    method: "DELETE",
+    headers: {
+      ...authHeaders(token),
+    },
+  });
+  const data = (await res.json().catch(() => ({}))) as unknown;
+  if (!res.ok) {
+    throw new ApiError(res.status, data);
+  }
 }

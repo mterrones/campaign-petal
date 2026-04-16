@@ -1,4 +1,36 @@
+import { useEffect, useState } from "react";
 import { Gauge, Zap, AlertTriangle, CheckCircle2 } from "lucide-react";
+
+const LIMA_TZ = "America/Lima";
+
+function msSinceMidnightInZone(now: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour: "numeric",
+    minute: "numeric",
+    second: "numeric",
+    hour12: false,
+  }).formatToParts(now);
+  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
+  const minute = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
+  const second = Number(parts.find((p) => p.type === "second")?.value ?? 0);
+  return (((hour * 60 + minute) * 60 + second) * 1000);
+}
+
+function msUntilNextMidnightInZone(now: Date, timeZone: string): number {
+  return 86400000 - msSinceMidnightInZone(now, timeZone);
+}
+
+function formatDurationUntilReset(ms: number): string {
+  if (ms <= 0) return "0 s";
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h} h ${m} min ${s} s`;
+  if (m > 0) return `${m} min ${s} s`;
+  return `${s} s`;
+}
 
 interface DailyQuotaCardProps {
   remaining: number | null;
@@ -15,6 +47,17 @@ const DailyQuotaCard = ({
   isLoading,
   isError,
 }: DailyQuotaCardProps) => {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const resetInLabel = formatDurationUntilReset(
+    msUntilNextMidnightInZone(now, LIMA_TZ),
+  );
+
   const hasData = remaining !== null && limit !== null && used !== null;
   const usedPct = hasData && limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
   const remainingPct = hasData ? 100 - usedPct : 0;
@@ -64,7 +107,7 @@ const DailyQuotaCard = ({
                 Envíos pendientes hoy
               </p>
               <p className="text-[11px] text-muted-foreground mt-0.5">
-                Hora de Lima · Reinicia a las 00:00
+                Reinicia en {resetInLabel}
               </p>
             </div>
           </div>
@@ -77,13 +120,15 @@ const DailyQuotaCard = ({
         </div>
 
         {/* Big number */}
-        <div className="flex items-baseline gap-2 mb-4">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 mb-4">
           <span className="text-5xl font-extrabold tracking-tight text-foreground tabular-nums">
             {isLoading ? "…" : isError ? "—" : (remaining ?? 0).toLocaleString()}
           </span>
           {hasData && (
             <span className="text-sm text-muted-foreground font-medium">
-              / {limit!.toLocaleString()} disponibles
+              disponibles /{" "}
+              <span className="tabular-nums text-foreground">{limit!.toLocaleString()}</span>{" "}
+              límite diario
             </span>
           )}
         </div>
