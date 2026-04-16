@@ -14,6 +14,9 @@ import logoImg from "@/assets/enviamas-logo-full.png";
 
 /* ── Paper plane doing a figure-8 with trail ── */
 const PaperPlaneAnimation = () => {
+  // Generate dots along the trail that fade behind the plane
+  const trailDots = Array.from({ length: 18 }, (_, i) => i);
+
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden>
       <svg
@@ -33,68 +36,42 @@ const PaperPlaneAnimation = () => {
                C150,300 300,360 300,250Z"
             fill="none"
           />
-          {/* Gradient for the trail */}
-          <linearGradient id="trailGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="white" stopOpacity="0" />
-            <stop offset="60%" stopColor="white" stopOpacity="0.15" />
-            <stop offset="100%" stopColor="white" stopOpacity="0.3" />
-          </linearGradient>
         </defs>
 
-        {/* Trail — animated dashed stroke following same path */}
-        <use
-          href="#figure8"
-          stroke="url(#trailGrad)"
-          strokeWidth="2"
-          strokeDasharray="80 520"
-          strokeLinecap="round"
-          fill="none"
-        >
-          <animate
-            attributeName="stroke-dashoffset"
-            from="600"
-            to="0"
-            dur="8s"
-            repeatCount="indefinite"
-          />
-        </use>
+        {/* Dotted trail — circles that follow the path with staggered delays */}
+        {trailDots.map((i) => {
+          const delay = i * 0.35;
+          const size = Math.max(1.2, 3.5 - i * 0.12);
+          const baseOpacity = Math.max(0.05, 0.4 - i * 0.02);
+          return (
+            <circle key={`dot-${i}`} r={size} fill="white" opacity="0">
+              <animateMotion dur="8s" repeatCount="indefinite" begin={`${delay}s`}>
+                <mpath href="#figure8" />
+              </animateMotion>
+              <animate
+                attributeName="opacity"
+                values={`0;${baseOpacity};${baseOpacity};0`}
+                keyTimes="0;0.05;0.7;1"
+                dur="2.5s"
+                repeatCount="indefinite"
+                begin={`${delay}s`}
+              />
+            </circle>
+          );
+        })}
 
-        {/* Secondary softer trail */}
-        <use
-          href="#figure8"
+        {/* Small loop flourish at the cross point — visible as a static dashed circle */}
+        <circle
+          cx="300" cy="250" r="12"
+          fill="none"
           stroke="white"
-          strokeOpacity="0.08"
-          strokeWidth="6"
-          strokeDasharray="60 540"
+          strokeOpacity="0.15"
+          strokeWidth="2"
+          strokeDasharray="3 5"
           strokeLinecap="round"
-          fill="none"
-        >
-          <animate
-            attributeName="stroke-dashoffset"
-            from="600"
-            to="0"
-            dur="8s"
-            repeatCount="indefinite"
-          />
-        </use>
+        />
 
-        {/* Sparkle dots along trail */}
-        {[0, 1, 2, 3, 4].map((i) => (
-          <circle key={i} r="2" fill="white" opacity="0">
-            <animateMotion dur="8s" repeatCount="indefinite" begin={`${i * 0.3}s`}>
-              <mpath href="#figure8" />
-            </animateMotion>
-            <animate
-              attributeName="opacity"
-              values="0;0.5;0"
-              dur="1.5s"
-              repeatCount="indefinite"
-              begin={`${i * 0.3}s`}
-            />
-          </circle>
-        ))}
-
-        {/* The paper plane */}
+        {/* The paper plane — styled like the reference image */}
         <g>
           <animateMotion
             dur="8s"
@@ -103,20 +80,54 @@ const PaperPlaneAnimation = () => {
           >
             <mpath href="#figure8" />
           </animateMotion>
-          {/* plane body */}
-          <polygon
-            points="14,0 -10,-5 -10,5"
-            fill="white"
-            opacity="0.9"
-          />
-          {/* wing fold line */}
-          <line x1="-8" y1="0" x2="8" y2="0" stroke="white" strokeOpacity="0.3" strokeWidth="0.8" />
-          {/* top wing */}
-          <polygon
-            points="4,-1 -8,-5 -6,0"
-            fill="white"
-            opacity="0.6"
-          />
+
+          {/* Main body — larger, more detailed paper plane */}
+          <g transform="scale(1.8)">
+            {/* Bottom wing (shadow) */}
+            <polygon
+              points="12,0 -6,6 -3,1"
+              fill="white"
+              opacity="0.45"
+            />
+            {/* Top wing */}
+            <polygon
+              points="12,0 -6,-6 -3,-1"
+              fill="white"
+              opacity="0.85"
+            />
+            {/* Center fold line */}
+            <line
+              x1="12" y1="0" x2="-6" y2="0"
+              stroke="white"
+              strokeOpacity="0.5"
+              strokeWidth="0.5"
+            />
+            {/* Wing crease — hatching effect like the reference */}
+            <line x1="2" y1="-1" x2="0" y2="-4" stroke="white" strokeOpacity="0.25" strokeWidth="0.4" />
+            <line x1="4" y1="-0.8" x2="2" y2="-4.5" stroke="white" strokeOpacity="0.2" strokeWidth="0.4" />
+            <line x1="6" y1="-0.5" x2="4" y2="-5" stroke="white" strokeOpacity="0.15" strokeWidth="0.4" />
+            {/* Outline for crispness */}
+            <polyline
+              points="-6,-6 12,0 -6,6"
+              fill="none"
+              stroke="white"
+              strokeWidth="0.6"
+              strokeOpacity="0.9"
+              strokeLinejoin="round"
+            />
+            <line
+              x1="-6" y1="-6" x2="-3" y2="-1"
+              stroke="white"
+              strokeWidth="0.5"
+              strokeOpacity="0.6"
+            />
+            <line
+              x1="-6" y1="6" x2="-3" y2="1"
+              stroke="white"
+              strokeWidth="0.5"
+              strokeOpacity="0.6"
+            />
+          </g>
         </g>
       </svg>
     </div>
