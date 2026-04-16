@@ -186,6 +186,7 @@ const EmailEditor = () => {
   }, [token, editor.showTemplateSelector, isTemplateMode]);
 
   useEffect(() => {
+    if (isTemplateMode) return;
     if (!token || !campaignId) return;
     const handle = window.setTimeout(() => {
       void patchJson<PatchCampaignResponse>(
