@@ -382,7 +382,41 @@ const EmailEditor = () => {
     }
   };
 
-  if (editor.showTemplateSelector) {
+  const openSaveTemplateDialog = () => setSaveTplDialogOpen(true);
+
+  const handleSaveTemplate = () => {
+    const name = editor.previewName.trim();
+    if (!name) {
+      toast.error("Ponle un nombre a la plantilla");
+      return;
+    }
+    if (editor.blocks.length === 0) {
+      toast.error("Agrega al menos un bloque antes de guardar");
+      return;
+    }
+    setTplSubmitting(true);
+    try {
+      const saved = saveUserTemplate({
+        id: savedTemplateId ?? undefined,
+        name,
+        description: tplDescription.trim(),
+        subject: editor.subject.trim(),
+        blocks: editor.blocks,
+        globalStyles: editor.globalStyles,
+      });
+      setSavedTemplateId(saved.id);
+      toast.success("Plantilla guardada");
+      setSaveTplDialogOpen(false);
+      if (!editingTemplateId) {
+        navigate(`/templates/${saved.id}/edit`, { replace: true });
+      }
+    } finally {
+      setTplSubmitting(false);
+    }
+  };
+
+  // Fallback to inline selector only if neither template nor URL param is set.
+  if (editor.showTemplateSelector && !isTemplateMode && !searchParams.get("template")) {
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-3">
