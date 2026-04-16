@@ -38,16 +38,9 @@ import {
   platformApiMessagesListQueryKey,
   platformApiMessagesReportQueryKey,
 } from "@/lib/platformReports";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from "recharts";
+import ApexChart from "@/components/charts/ApexChart";
+import { apexPalette, baseChartOptions } from "@/lib/apexTheme";
+import type { ApexOptions } from "apexcharts";
 
 const ReportsApi = () => {
   const { token, user } = useAuth();
