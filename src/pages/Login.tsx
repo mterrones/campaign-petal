@@ -38,14 +38,13 @@ const PaperPlaneAnimation = () => {
           />
         </defs>
 
-        {/* Dotted trail — circles that follow the path with staggered delays */}
+        {/* Dashed trail — small lines that follow the path with staggered delays */}
         {trailDots.map((i) => {
           const delay = i * 0.35;
-          const size = Math.max(1.2, 3.5 - i * 0.12);
-          const baseOpacity = Math.max(0.05, 0.4 - i * 0.02);
+          const baseOpacity = Math.max(0.08, 0.45 - i * 0.02);
           return (
-            <circle key={`dot-${i}`} r={size} fill="white" opacity="0">
-              <animateMotion dur="8s" repeatCount="indefinite" begin={`${delay}s`}>
+            <g key={`dash-${i}`} opacity="0">
+              <animateMotion dur="8s" repeatCount="indefinite" rotate="auto" begin={`${delay}s`}>
                 <mpath href="#figure8" />
               </animateMotion>
               <animate
@@ -56,7 +55,13 @@ const PaperPlaneAnimation = () => {
                 repeatCount="indefinite"
                 begin={`${delay}s`}
               />
-            </circle>
+              <line
+                x1="-5" y1="0" x2="5" y2="0"
+                stroke="white"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            </g>
           );
         })}
 
