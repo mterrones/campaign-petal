@@ -1,8 +1,9 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Send, Users, MousePointerClick, Eye, ArrowUpRight, Gauge } from "lucide-react";
+import { Send, Users, MousePointerClick, Eye, ArrowUpRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import StatCard from "@/components/StatCard";
+import DailyQuotaCard from "@/components/DailyQuotaCard";
 import CampaignStatusBadge from "@/components/CampaignStatusBadge";
 import { Progress } from "@/components/ui/progress";
 import {
