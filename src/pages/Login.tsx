@@ -26,14 +26,14 @@ const PaperPlaneAnimation = () => {
         xmlns="http://www.w3.org/2000/svg"
       >
         <defs>
-          {/* Figure-8 path */}
+          {/* Wavy path — left to right with natural paper plane swoops */}
           <path
-            id="figure8"
-            d="M300,250
-               C300,140 450,80 450,190
-               C450,300 300,360 300,250
-               C300,140 150,80 150,190
-               C150,300 300,360 300,250Z"
+            id="planePath"
+            d="M-60,350
+               C80,320 120,150 200,180
+               C280,210 260,350 340,300
+               C420,250 400,120 480,160
+               C560,200 540,320 660,280"
             fill="none"
           />
         </defs>
@@ -45,7 +45,7 @@ const PaperPlaneAnimation = () => {
           return (
             <g key={`dash-${i}`} opacity="0">
               <animateMotion dur="8s" repeatCount="indefinite" rotate="auto" begin={`${delay}s`}>
-                <mpath href="#figure8" />
+                <mpath href="#planePath" />
               </animateMotion>
               <animate
                 attributeName="opacity"
@@ -65,16 +65,6 @@ const PaperPlaneAnimation = () => {
           );
         })}
 
-        {/* Small loop flourish at the cross point — visible as a static dashed circle */}
-        <circle
-          cx="300" cy="250" r="12"
-          fill="none"
-          stroke="white"
-          strokeOpacity="0.15"
-          strokeWidth="2"
-          strokeDasharray="3 5"
-          strokeLinecap="round"
-        />
 
         {/* The paper plane — styled like the reference image */}
         <g>
@@ -83,7 +73,7 @@ const PaperPlaneAnimation = () => {
             repeatCount="indefinite"
             rotate="auto"
           >
-            <mpath href="#figure8" />
+            <mpath href="#planePath" />
           </animateMotion>
 
           {/* Main body — larger, more detailed paper plane */}
