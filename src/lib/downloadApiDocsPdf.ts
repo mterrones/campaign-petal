@@ -53,13 +53,13 @@ export async function downloadApiDocumentationPdf(
 <html lang="es">
 <head>
 <meta charset="utf-8" />
-<title>EnviaMas — API · Documentación</title>
+<title>Enviamas - Maillings API's</title>
 <style>${styles}</style>
 <style>${printCss}</style>
 </head>
 <body>
   <div class="doc-header">
-    <h1>EnviaMas — API</h1>
+    <h1>Enviamas - Maillings API's</h1>
     <p>API Key · POST y GET /v1/messages</p>
   </div>
   <h2>Mensajes (API Key)</h2>

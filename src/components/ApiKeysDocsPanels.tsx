@@ -105,7 +105,7 @@ export const ApiKeyMessagesDocs = forwardRef<HTMLDivElement, ApiKeyDocsProps>(
                   <thead>
                     <tr className="bg-muted/50 border-b">
                       <th className="text-left px-3 py-1.5 font-medium">Campo</th>
-                      <th className="text-left px-3 py-1.5 font-medium w-[88px]">Req.</th>
+                      <th className="text-left px-3 py-1.5 font-medium w-[72px]">Obl.</th>
                       <th className="text-left px-3 py-1.5 font-medium">Nota</th>
                     </tr>
                   </thead>
