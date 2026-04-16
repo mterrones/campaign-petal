@@ -126,27 +126,16 @@ const Dashboard = () => {
         <p className="text-muted-foreground mt-1">Resumen de tu actividad de email marketing</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
-        <StatCard
-          title="Envíos API disponibles hoy (Lima)"
-          value={
-            quotaQuery.data
-              ? quotaQuery.data.remaining.toLocaleString()
-              : quotaQuery.isError
-                ? "—"
-                : "…"
-          }
-          change={
-            quotaQuery.data
-              ? `Límite diario ${quotaQuery.data.limit.toLocaleString()} · ${quotaQuery.data.used.toLocaleString()} enviados hoy`
-              : quotaQuery.isError
-                ? "No se pudo cargar la cuota"
-                : "Cargando…"
-          }
-          changeType="neutral"
-          icon={Gauge}
-          iconColor="bg-violet-500/10 text-violet-600 dark:text-violet-400"
-        />
+      {/* Featured: API daily quota */}
+      <DailyQuotaCard
+        remaining={quotaQuery.data?.remaining ?? null}
+        limit={quotaQuery.data?.limit ?? null}
+        used={quotaQuery.data?.used ?? null}
+        isLoading={quotaQuery.isLoading}
+        isError={quotaQuery.isError}
+      />
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         <StatCard
           title="Contactos activos"
           value={activeContactCount.toLocaleString()}
