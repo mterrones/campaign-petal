@@ -25,7 +25,6 @@ export const baseChartOptions: ApexOptions = {
     zoom: { enabled: false },
     animations: {
       enabled: true,
-      easing: "easeinout",
       speed: 600,
       animateGradually: { enabled: true, delay: 100 },
       dynamicAnimation: { enabled: true, speed: 350 },

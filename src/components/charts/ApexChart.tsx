@@ -5,7 +5,7 @@ const ReactApexChart = lazy(() => import("react-apexcharts"));
 
 type Props = {
   options: ApexOptions;
-  series: ApexAxisChartSeries | ApexNonAxisChartSeries;
+  series: unknown;
   type:
     | "line"
     | "area"
@@ -41,7 +41,7 @@ export default function ApexChart({ options, series, type, height = 320, width =
     >
       <ReactApexChart
         options={options}
-        series={series as ApexAxisChartSeries}
+        series={series as never}
         type={type}
         height={height}
         width={width}
