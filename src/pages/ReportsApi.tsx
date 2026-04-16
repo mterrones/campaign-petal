@@ -9,6 +9,13 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import StatCard from "@/components/StatCard";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -21,10 +28,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAuth } from "@/context/AuthContext";
-import type { ApiMessageListItem } from "@/lib/platformReports";
+import { formatDateTimeGmtMinus5 } from "@/lib/dateTimeGmtMinus5";
 import {
   defaultApiMessagesPageSize,
   defaultDateRange,
+  fetchApiMessagePreview,
   fetchApiMessagesListPage,
   fetchApiMessagesReport,
   platformApiMessagesListQueryKey,
@@ -41,33 +49,6 @@ import {
   Legend,
 } from "recharts";
 
-function deliveryStatusLabel(status: string): string {
-  const map: Record<string, string> = {
-    queued: "En cola",
-    sent: "Enviado",
-    delivered: "Entregado",
-    failed: "Fallido",
-    bounced: "Rebotado",
-  };
-  return map[status] ?? status;
-}
-
-function deliveryStatusClass(status: string): string {
-  if (status === "sent" || status === "delivered") return "text-emerald-700 dark:text-emerald-400";
-  if (status === "queued") return "text-muted-foreground";
-  if (status === "failed") return "text-destructive";
-  if (status === "bounced") return "text-amber-700 dark:text-amber-400";
-  return "";
-}
-
-function formatMessageWhen(m: ApiMessageListItem): string {
-  const iso = m.sentAt ?? m.createdAt;
-  return new Date(iso).toLocaleString(undefined, {
-    dateStyle: "short",
-    timeStyle: "medium",
-  });
-}
-
 const ReportsApi = () => {
   const { token, user } = useAuth();
   const initial = useMemo(() => defaultDateRange(30), []);
@@ -75,6 +56,7 @@ const ReportsApi = () => {
   const [to, setTo] = useState(initial.to);
   const [applied, setApplied] = useState({ from: initial.from, to: initial.to });
   const [listPage, setListPage] = useState(1);
+  const [previewMessageId, setPreviewMessageId] = useState<string | null>(null);
   const pageSize = defaultApiMessagesPageSize;
 
   const { data, isPending, isError, error, refetch } = useQuery({
@@ -101,6 +83,12 @@ const ReportsApi = () => {
       ),
     enabled:
       !!token && !!user?.clientId && applied.from <= applied.to,
+  });
+
+  const previewQuery = useQuery({
+    queryKey: ["platform", "reports", "api-message-preview", previewMessageId],
+    queryFn: () => fetchApiMessagePreview(token!, previewMessageId!),
+    enabled: !!token && !!previewMessageId,
   });
 
   const applyFilters = () => {
@@ -139,6 +127,54 @@ const ReportsApi = () => {
 
   return (
     <div className="space-y-6">
+      <Dialog
+        open={previewMessageId != null}
+        onOpenChange={(open) => {
+          if (!open) setPreviewMessageId(null);
+        }}
+      >
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col gap-0 p-0 overflow-hidden">
+          <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
+            <DialogTitle className="pr-8 leading-snug">
+              {previewQuery.data?.subject?.trim() || "Correo enviado"}
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              Vista previa del contenido enviado por API para este destinatario.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="px-6 pb-6 min-h-0 flex-1 flex flex-col overflow-hidden">
+            {previewQuery.isPending && (
+              <p className="text-sm text-muted-foreground py-8 text-center">Cargando contenido…</p>
+            )}
+            {previewQuery.isError && (
+              <p className="text-sm text-destructive py-8 text-center">
+                No se pudo cargar el correo.
+              </p>
+            )}
+            {previewQuery.data && !previewQuery.isPending && (
+              <div className="rounded-md border bg-muted/20 overflow-hidden flex-1 min-h-[min(420px,50vh)] flex flex-col">
+                {previewQuery.data.htmlBody ? (
+                  <iframe
+                    title="Vista previa del correo"
+                    sandbox=""
+                    srcDoc={previewQuery.data.htmlBody}
+                    className="w-full flex-1 min-h-[360px] border-0 bg-background"
+                  />
+                ) : previewQuery.data.textBody ? (
+                  <pre className="p-4 text-sm whitespace-pre-wrap font-sans overflow-auto flex-1">
+                    {previewQuery.data.textBody}
+                  </pre>
+                ) : (
+                  <p className="p-6 text-sm text-muted-foreground text-center">
+                    No hay cuerpo HTML ni texto guardado para este envío.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div>
         <h1 className="text-2xl font-bold">Reportes · API</h1>
         <p className="text-muted-foreground mt-1">
@@ -269,28 +305,41 @@ const ReportsApi = () => {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="whitespace-nowrap">Fecha y hora</TableHead>
+                          <TableHead>Destinatario</TableHead>
                           <TableHead>Estado</TableHead>
-                          <TableHead>Para</TableHead>
-                          <TableHead className="min-w-[180px]">Asunto</TableHead>
+                          <TableHead className="text-right">Aperturas</TableHead>
+                          <TableHead className="text-right">Clicks</TableHead>
+                          <TableHead>Enviado</TableHead>
+                          <TableHead className="min-w-[160px]">Asunto</TableHead>
+                          <TableHead className="w-[100px] text-right">Correo</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {detailRows.map((m) => (
                           <TableRow key={m.id}>
-                            <TableCell className="whitespace-nowrap text-sm font-mono tabular-nums">
-                              {formatMessageWhen(m)}
-                            </TableCell>
-                            <TableCell
-                              className={`text-sm font-medium ${deliveryStatusClass(m.deliveryStatus)}`}
-                            >
-                              {deliveryStatusLabel(m.deliveryStatus)}
-                            </TableCell>
-                            <TableCell className="text-sm max-w-[220px] truncate" title={m.to}>
+                            <TableCell className="font-mono text-xs max-w-[200px] truncate" title={m.to}>
                               {m.to}
                             </TableCell>
-                            <TableCell className="text-sm max-w-[280px] truncate" title={m.subject}>
+                            <TableCell className="text-sm">{m.deliveryStatus}</TableCell>
+                            <TableCell className="text-right text-sm">{m.openCount}</TableCell>
+                            <TableCell className="text-right text-sm">{m.clickCount}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground whitespace-nowrap tabular-nums">
+                              {formatDateTimeGmtMinus5(m.sentAt ?? m.createdAt)}
+                            </TableCell>
+                            <TableCell className="text-sm max-w-[240px] truncate" title={m.subject}>
                               {m.subject || "—"}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="gap-1"
+                                onClick={() => setPreviewMessageId(m.id)}
+                              >
+                                <Eye className="w-4 h-4" />
+                                Ver
+                              </Button>
                             </TableCell>
                           </TableRow>
                         ))}

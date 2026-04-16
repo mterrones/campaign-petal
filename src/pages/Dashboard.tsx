@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Send, Users, MousePointerClick, Eye, ArrowUpRight } from "lucide-react";
+import { Send, Users, MousePointerClick, Eye, ArrowUpRight, Gauge } from "lucide-react";
 import { Link } from "react-router-dom";
 import StatCard from "@/components/StatCard";
 import CampaignStatusBadge from "@/components/CampaignStatusBadge";
@@ -15,6 +15,10 @@ import {
   type PlatformCampaign,
   platformCampaignsQueryKey,
 } from "@/lib/platformCampaigns";
+import {
+  fetchDailySendQuota,
+  platformDailySendQuotaQueryKey,
+} from "@/lib/platformDailyQuota";
 import { contacts } from "@/data/mockData";
 
 type ChartRow = { name: string; enviados: number; abiertos: number; clicks: number };
@@ -51,6 +55,12 @@ const Dashboard = () => {
   const { data, isPending, isError } = useQuery({
     queryKey: platformCampaignsQueryKey,
     queryFn: () => getJson<CampaignsListResponse>("/v1/platform/campaigns", token!),
+    enabled: !!token,
+  });
+
+  const quotaQuery = useQuery({
+    queryKey: platformDailySendQuotaQueryKey,
+    queryFn: () => fetchDailySendQuota(token!),
     enabled: !!token,
   });
 
@@ -115,7 +125,27 @@ const Dashboard = () => {
         <p className="text-muted-foreground mt-1">Resumen de tu actividad de email marketing</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
+        <StatCard
+          title="Envíos API disponibles hoy (Lima)"
+          value={
+            quotaQuery.data
+              ? quotaQuery.data.remaining.toLocaleString()
+              : quotaQuery.isError
+                ? "—"
+                : "…"
+          }
+          change={
+            quotaQuery.data
+              ? `Límite diario ${quotaQuery.data.limit.toLocaleString()} · ${quotaQuery.data.used.toLocaleString()} enviados hoy`
+              : quotaQuery.isError
+                ? "No se pudo cargar la cuota"
+                : "Cargando…"
+          }
+          changeType="neutral"
+          icon={Gauge}
+          iconColor="bg-violet-500/10 text-violet-600 dark:text-violet-400"
+        />
         <StatCard
           title="Contactos activos"
           value={activeContactCount.toLocaleString()}

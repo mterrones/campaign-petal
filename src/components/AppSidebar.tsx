@@ -9,7 +9,7 @@ import {
   LogOut,
   ChevronRight,
   Mail,
-  FileText,
+  LayoutTemplate,
   Globe,
   Activity,
   Sparkles,
@@ -53,6 +53,7 @@ interface NavItem {
 const mainNav: NavItem[] = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard", exact: true },
   { to: "/campaigns", icon: Send, label: "Campañas" },
+  { to: "/templates", icon: LayoutTemplate, label: "Plantillas" },
   { to: "/contacts", icon: Users, label: "Contactos" },
   {
     to: "/reports",

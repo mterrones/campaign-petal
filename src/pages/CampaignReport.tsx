@@ -11,6 +11,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { useAuth } from "@/context/AuthContext";
+import { formatDateTimeGmtMinus5 } from "@/lib/dateTimeGmtMinus5";
 import { getJson } from "@/lib/api";
 import {
   type CampaignMessagesResponse,
@@ -261,8 +262,8 @@ const CampaignReport = () => {
                     <TableCell className="text-sm">{m.deliveryStatus}</TableCell>
                     <TableCell className="text-right text-sm">{m.openCount}</TableCell>
                     <TableCell className="text-right text-sm">{m.clickCount}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                      {m.sentAt ?? m.createdAt}
+                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap tabular-nums">
+                      {formatDateTimeGmtMinus5(m.sentAt ?? m.createdAt)}
                     </TableCell>
                   </TableRow>
                 ))

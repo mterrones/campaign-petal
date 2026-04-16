@@ -15,6 +15,7 @@ import ReportsApi from "./pages/ReportsApi";
 import CampaignReport from "./pages/CampaignReport";
 import DomainSettings from "./pages/DomainSettings";
 import ApiKeys from "./pages/ApiKeys";
+import Templates from "./pages/Templates";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
@@ -34,6 +35,7 @@ const App = () => (
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/campaigns" element={<Campaigns />} />
                 <Route path="/campaigns/new" element={<EmailEditor />} />
+                <Route path="/templates" element={<Templates />} />
                 <Route path="/contacts" element={<Contacts />} />
                 <Route path="/reports" element={<Navigate to="/reports/campaigns" replace />} />
                 <Route path="/reports/campaigns" element={<Reports />} />

@@ -60,6 +60,8 @@ export type ApiMessageListItem = {
   deliveryStatus: string;
   sentAt: string | null;
   createdAt: string;
+  openCount: number;
+  clickCount: number;
 };
 
 export type ApiMessagesListResponse = {
@@ -88,6 +90,22 @@ export function fetchApiMessagesListPage(
   });
   return getJson<ApiMessagesListResponse>(
     `/v1/platform/reports/api-messages/list?${sp.toString()}`,
+    token,
+  );
+}
+
+export type ApiMessagePreviewResponse = {
+  subject: string;
+  htmlBody: string | null;
+  textBody: string | null;
+};
+
+export function fetchApiMessagePreview(
+  token: string,
+  messageId: string,
+): Promise<ApiMessagePreviewResponse> {
+  return getJson<ApiMessagePreviewResponse>(
+    `/v1/platform/reports/api-messages/${encodeURIComponent(messageId)}/preview`,
     token,
   );
 }
