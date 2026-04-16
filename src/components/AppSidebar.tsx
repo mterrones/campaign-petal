@@ -52,15 +52,7 @@ interface NavItem {
 
 const mainNav: NavItem[] = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard", exact: true },
-  {
-    to: "/campaigns",
-    icon: Send,
-    label: "Campañas",
-    children: [
-      { to: "/campaigns", label: "Todas las campañas", icon: Mail },
-      { to: "/campaigns/new", label: "Nueva campaña", icon: FileText },
-    ],
-  },
+  { to: "/campaigns", icon: Send, label: "Campañas" },
   { to: "/contacts", icon: Users, label: "Contactos" },
   {
     to: "/reports",
