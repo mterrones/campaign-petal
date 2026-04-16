@@ -161,43 +161,101 @@ const Dashboard = () => {
         />
       </div>
 
-      <div className="stat-card">
-        <div className="flex items-center justify-between mb-6">
+      <div className="rounded-2xl border bg-card p-6 shadow-sm">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
-            <h2 className="text-lg font-bold">Rendimiento de Campañas</h2>
-            <p className="text-sm text-muted-foreground">Últimos 4 meses (entregas, aperturas y clics)</p>
+            <h2 className="text-lg font-bold text-foreground">Rendimiento de Campañas</h2>
+            <p className="text-sm text-muted-foreground mt-0.5">Últimos 4 meses</p>
           </div>
-          <div className="flex gap-4 text-xs">
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-primary" /> Entregas</span>
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-success" /> Abiertos</span>
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-info" /> Clicks</span>
+          <div className="flex gap-5 text-xs font-medium">
+            <span className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full bg-primary shadow-sm shadow-primary/30" />
+              <span className="text-muted-foreground">Entregas</span>
+            </span>
+            <span className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full bg-success shadow-sm shadow-success/30" />
+              <span className="text-muted-foreground">Abiertos</span>
+            </span>
+            <span className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full bg-info shadow-sm shadow-info/30" />
+              <span className="text-muted-foreground">Clicks</span>
+            </span>
           </div>
         </div>
-        <ResponsiveContainer width="100%" height={280}>
-          <AreaChart data={chartData}>
+
+        {/* Chart */}
+        <ResponsiveContainer width="100%" height={300}>
+          <AreaChart data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
             <defs>
               <linearGradient id="gEnviados" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="hsl(28, 90%, 55%)" stopOpacity={0.2} />
-                <stop offset="95%" stopColor="hsl(28, 90%, 55%)" stopOpacity={0} />
+                <stop offset="0%" stopColor="hsl(25, 95%, 53%)" stopOpacity={0.25} />
+                <stop offset="100%" stopColor="hsl(25, 95%, 53%)" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="gAbiertos" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="hsl(152, 60%, 42%)" stopOpacity={0.2} />
-                <stop offset="95%" stopColor="hsl(152, 60%, 42%)" stopOpacity={0} />
+                <stop offset="0%" stopColor="hsl(152, 60%, 42%)" stopOpacity={0.2} />
+                <stop offset="100%" stopColor="hsl(152, 60%, 42%)" stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="gClicks" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="hsl(210, 92%, 55%)" stopOpacity={0.15} />
+                <stop offset="100%" stopColor="hsl(210, 92%, 55%)" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(30, 15%, 90%)" />
-            <XAxis dataKey="name" tick={{ fontSize: 12 }} stroke="hsl(20, 10%, 46%)" />
-            <YAxis tick={{ fontSize: 12 }} stroke="hsl(20, 10%, 46%)" />
+            <CartesianGrid strokeDasharray="4 4" stroke="hsl(220, 13%, 91%)" vertical={false} />
+            <XAxis
+              dataKey="name"
+              axisLine={false}
+              tickLine={false}
+              tick={{ fontSize: 12, fill: "hsl(220, 10%, 46%)" }}
+              dy={10}
+            />
+            <YAxis
+              axisLine={false}
+              tickLine={false}
+              tick={{ fontSize: 11, fill: "hsl(220, 10%, 46%)" }}
+              dx={-5}
+            />
             <Tooltip
               contentStyle={{
-                borderRadius: "0.75rem",
-                border: "1px solid hsl(30, 15%, 90%)",
+                borderRadius: "12px",
+                border: "1px solid hsl(220, 13%, 91%)",
+                boxShadow: "0 8px 24px -4px rgba(0,0,0,0.08)",
                 fontSize: "12px",
+                padding: "10px 14px",
+                background: "hsl(0, 0%, 100%)",
               }}
+              cursor={{ stroke: "hsl(25, 95%, 53%)", strokeWidth: 1, strokeDasharray: "4 4" }}
             />
-            <Area type="monotone" dataKey="enviados" stroke="hsl(28, 90%, 55%)" fillOpacity={1} fill="url(#gEnviados)" strokeWidth={2} />
-            <Area type="monotone" dataKey="abiertos" stroke="hsl(152, 60%, 42%)" fillOpacity={1} fill="url(#gAbiertos)" strokeWidth={2} />
-            <Area type="monotone" dataKey="clicks" stroke="hsl(199, 89%, 48%)" fillOpacity={0} strokeWidth={2} />
+            <Area
+              type="monotone"
+              dataKey="enviados"
+              stroke="hsl(25, 95%, 53%)"
+              fillOpacity={1}
+              fill="url(#gEnviados)"
+              strokeWidth={2.5}
+              dot={false}
+              activeDot={{ r: 5, strokeWidth: 2, fill: "white", stroke: "hsl(25, 95%, 53%)" }}
+            />
+            <Area
+              type="monotone"
+              dataKey="abiertos"
+              stroke="hsl(152, 60%, 42%)"
+              fillOpacity={1}
+              fill="url(#gAbiertos)"
+              strokeWidth={2.5}
+              dot={false}
+              activeDot={{ r: 5, strokeWidth: 2, fill: "white", stroke: "hsl(152, 60%, 42%)" }}
+            />
+            <Area
+              type="monotone"
+              dataKey="clicks"
+              stroke="hsl(210, 92%, 55%)"
+              fillOpacity={1}
+              fill="url(#gClicks)"
+              strokeWidth={2.5}
+              dot={false}
+              activeDot={{ r: 5, strokeWidth: 2, fill: "white", stroke: "hsl(210, 92%, 55%)" }}
+            />
           </AreaChart>
         </ResponsiveContainer>
       </div>
