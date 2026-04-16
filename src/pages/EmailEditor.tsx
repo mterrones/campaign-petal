@@ -137,7 +137,9 @@ const EmailEditor = () => {
       return;
     }
 
-    // Campaign mode — handle ?template=blank|builtin:id|user:id
+    // Campaign mode — handle ?template=blank|builtin:id|user:id and ?subject=&name=
+    const subjectParam = searchParams.get("subject");
+    const nameParam = searchParams.get("name");
     if (templateParam) {
       templateLoadRef.current = true;
       if (templateParam === "blank") {
@@ -162,6 +164,9 @@ const EmailEditor = () => {
           editor.loadTemplate([], {});
         }
       }
+      // Apply explicit overrides from query string (used when duplicating)
+      if (subjectParam) editor.setSubject(subjectParam);
+      if (nameParam) editor.setPreviewName(nameParam);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

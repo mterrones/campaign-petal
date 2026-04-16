@@ -138,7 +138,18 @@ const Campaigns = () => {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => navigate(`/reports/campaigns/${c.id}`)}>Ver reporte</DropdownMenuItem>
-                          <DropdownMenuItem>Duplicar</DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              const sp = new URLSearchParams({
+                                template: "blank",
+                                subject: c.subject || "",
+                                name: `${c.name} (copia)`,
+                              });
+                              navigate(`/campaigns/editor?${sp.toString()}`);
+                            }}
+                          >
+                            Duplicar
+                          </DropdownMenuItem>
                           <DropdownMenuItem className="text-destructive">Eliminar</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
