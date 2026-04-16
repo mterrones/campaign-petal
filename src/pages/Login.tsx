@@ -26,14 +26,14 @@ const PaperPlaneAnimation = () => {
         xmlns="http://www.w3.org/2000/svg"
       >
         <defs>
-          {/* Wavy path — left to right with natural paper plane swoops */}
+          {/* Wavy path — kept in the lower region so it doesn't overlap the headline */}
           <path
             id="planePath"
-            d="M-60,350
-               C80,320 120,150 200,180
-               C280,210 260,350 340,300
-               C420,250 400,120 480,160
-               C560,200 540,320 660,280"
+            d="M-60,440
+               C80,420 120,330 200,360
+               C280,390 260,470 340,430
+               C420,390 400,310 480,340
+               C560,370 540,450 660,420"
             fill="none"
           />
         </defs>
