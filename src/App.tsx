@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/context/AuthContext";
 import AppLayout from "./components/AppLayout";
 import RequireAuth from "./components/RequireAuth";
+import PlatformAccessGate from "./components/PlatformAccessGate";
 import Dashboard from "./pages/Dashboard";
 import Campaigns from "./pages/Campaigns";
 import CampaignNew from "./pages/CampaignNew";
@@ -19,6 +20,7 @@ import ApiKeys from "./pages/ApiKeys";
 import Templates from "./pages/Templates";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
+import AdminUsers from "./pages/AdminUsers";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +35,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route element={<RequireAuth />}>
               <Route element={<AppLayout />}>
+                <Route element={<PlatformAccessGate />}>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/campaigns" element={<Campaigns />} />
                 <Route path="/campaigns/new" element={<CampaignNew />} />
@@ -47,6 +50,9 @@ const App = () => (
                 <Route path="/reports/api" element={<ReportsApi />} />
                 <Route path="/settings" element={<DomainSettings />} />
                 <Route path="/api-keys" element={<ApiKeys />} />
+                <Route path="/admin/users" element={<AdminUsers />} />
+                <Route path="*" element={<NotFound />} />
+                </Route>
               </Route>
             </Route>
             <Route path="*" element={<NotFound />} />

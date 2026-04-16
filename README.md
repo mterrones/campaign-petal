@@ -1,3 +1,3 @@
-# Welcome to your Lovable project
+# EnviaMas — Frontend
 
-TODO: Document your project here
+Aplicación web para la plataforma de correo EnviaMas.

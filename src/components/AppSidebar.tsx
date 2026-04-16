@@ -12,7 +12,7 @@ import {
   LayoutTemplate,
   Globe,
   Activity,
-  Sparkles,
+  UserCog,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
@@ -35,6 +35,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Separator } from "@/components/ui/separator";
 import logoFull from "@/assets/enviamas-logo-full.png";
 import logoIcon from "@/assets/enviamas-logo.png";
+import { isPlatformAdmin } from "@/lib/platformAdmin";
 
 interface NavChild {
   to: string;
@@ -81,7 +82,8 @@ const secondaryNav: NavItem[] = [
 const AppSidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+  const platformAdmin = isPlatformAdmin(user);
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
 
@@ -184,6 +186,13 @@ const AppSidebar = () => {
     );
   };
 
+  const adminNavItem: NavItem = {
+    to: "/admin/users",
+    icon: UserCog,
+    label: "Usuarios",
+    exact: true,
+  };
+
   return (
     <Sidebar collapsible="icon" className="border-r border-border/40">
       {/* Logo */}
@@ -225,6 +234,22 @@ const AppSidebar = () => {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {platformAdmin && (
+          <>
+            <Separator className="mx-3 my-3 bg-border/40" />
+            <SidebarGroup>
+              {!collapsed && (
+                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground/40 px-3 mb-2">
+                  Administración
+                </p>
+              )}
+              <SidebarGroupContent>
+                <SidebarMenu className="space-y-1">{renderItem(adminNavItem)}</SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        )}
       </SidebarContent>
 
       {/* Footer */}
