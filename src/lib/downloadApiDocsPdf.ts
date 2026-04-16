@@ -38,8 +38,7 @@ const printCss = `
 `;
 
 export async function downloadApiDocumentationPdf(
-  singleSection: HTMLElement,
-  bulkSection: HTMLElement,
+  apiKeySection: HTMLElement,
 ): Promise<void> {
   const printWindow = window.open("", "_blank", "width=900,height=1000");
   if (!printWindow) {
@@ -47,8 +46,7 @@ export async function downloadApiDocumentationPdf(
   }
 
   const styles = collectStyles();
-  const singleHtml = (singleSection.cloneNode(true) as HTMLElement).outerHTML;
-  const bulkHtml = (bulkSection.cloneNode(true) as HTMLElement).outerHTML;
+  const apiKeyHtml = (apiKeySection.cloneNode(true) as HTMLElement).outerHTML;
 
   printWindow.document.open();
   printWindow.document.write(`<!doctype html>
@@ -62,12 +60,10 @@ export async function downloadApiDocumentationPdf(
 <body>
   <div class="doc-header">
     <h1>EnviaMas — API</h1>
-    <p>Documentación: envío individual y envío masivo</p>
+    <p>API Key · POST y GET /v1/messages</p>
   </div>
-  <h2>Envío individual</h2>
-  ${singleHtml}
-  <h2 style="page-break-before: always;">Envío masivo</h2>
-  ${bulkHtml}
+  <h2>Mensajes (API Key)</h2>
+  ${apiKeyHtml}
 </body>
 </html>`);
   printWindow.document.close();
