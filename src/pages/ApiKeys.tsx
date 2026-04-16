@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,6 +24,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { ApiError, getJson, postJson } from "@/lib/api";
+import { downloadApiDocumentationPdf } from "@/lib/downloadApiDocsPdf";
 import {
   Key,
   Copy,
@@ -34,10 +35,10 @@ import {
   Code2,
   FileJson,
   CheckCircle2,
-  AlertTriangle,
-  RefreshCw,
   Shield,
   BookOpen,
+  FileDown,
+  Loader2,
 } from "lucide-react";
 
 type ApiKeyRow = {
@@ -61,6 +62,10 @@ const ApiKeys = () => {
   const queryClient = useQueryClient();
   const [newKeyName, setNewKeyName] = useState("");
   const [createdKeyPlain, setCreatedKeyPlain] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("keys");
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const singleDocRef = useRef<HTMLDivElement>(null);
+  const bulkDocRef = useRef<HTMLDivElement>(null);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -132,6 +137,24 @@ const ApiKeys = () => {
     revokeMutation.mutate(id);
   };
 
+  const handleDownloadDocumentationPdf = async () => {
+    const a = singleDocRef.current;
+    const b = bulkDocRef.current;
+    if (!a || !b) {
+      toast.error("No se pudo preparar el contenido para el PDF");
+      return;
+    }
+    setPdfLoading(true);
+    try {
+      await downloadApiDocumentationPdf(a, b);
+      toast.success("PDF descargado");
+    } catch {
+      toast.error("No se pudo generar el PDF. Inténtalo de nuevo.");
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
   const noOrg = user && user.clientId === null;
 
   return (
@@ -144,21 +167,40 @@ const ApiKeys = () => {
         </p>
       </div>
 
-      <Tabs defaultValue="keys" className="space-y-4">
-        <TabsList className="flex flex-wrap h-auto gap-1">
-          <TabsTrigger value="keys">
-            <Key className="w-3.5 h-3.5 mr-1.5" />
-            API Keys
-          </TabsTrigger>
-          <TabsTrigger value="single">
-            <Send className="w-3.5 h-3.5 mr-1.5" />
-            Envío Individual
-          </TabsTrigger>
-          <TabsTrigger value="bulk">
-            <Users className="w-3.5 h-3.5 mr-1.5" />
-            Envío Masivo
-          </TabsTrigger>
-        </TabsList>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          <TabsList className="flex flex-wrap h-auto gap-1 w-full sm:w-auto">
+            <TabsTrigger value="keys">
+              <Key className="w-3.5 h-3.5 mr-1.5" />
+              API Keys
+            </TabsTrigger>
+            <TabsTrigger value="single">
+              <Send className="w-3.5 h-3.5 mr-1.5" />
+              Envío Individual
+            </TabsTrigger>
+            <TabsTrigger value="bulk">
+              <Users className="w-3.5 h-3.5 mr-1.5" />
+              Envío Masivo
+            </TabsTrigger>
+          </TabsList>
+          {(activeTab === "single" || activeTab === "bulk") && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="shrink-0 w-full sm:w-auto"
+              disabled={pdfLoading}
+              onClick={() => void handleDownloadDocumentationPdf()}
+            >
+              {pdfLoading ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <FileDown className="w-4 h-4 mr-2" />
+              )}
+              Descargar PDF
+            </Button>
+          )}
+        </div>
 
         {/* ─── TAB: API Keys ─── */}
         <TabsContent value="keys" className="space-y-4">
@@ -335,7 +377,12 @@ const ApiKeys = () => {
         </TabsContent>
 
         {/* ─── TAB: Envío Individual ─── */}
-        <TabsContent value="single" className="space-y-4">
+        <TabsContent
+          value="single"
+          forceMount
+          className="space-y-4 data-[state=inactive]:hidden"
+        >
+          <div ref={singleDocRef} className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -613,10 +660,16 @@ print(response.json()["message_id"])`}
               </div>
             </CardContent>
           </Card>
+          </div>
         </TabsContent>
 
         {/* ─── TAB: Envío Masivo ─── */}
-        <TabsContent value="bulk" className="space-y-4">
+        <TabsContent
+          value="bulk"
+          forceMount
+          className="space-y-4 data-[state=inactive]:hidden"
+        >
+          <div ref={bulkDocRef} className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -1003,6 +1056,7 @@ print(f"Batch: {data['batch_id']}, Aceptados: {data['accepted']}")`}
               </div>
             </CardContent>
           </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

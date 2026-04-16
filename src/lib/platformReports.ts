@@ -45,3 +45,40 @@ export function defaultDateRange(days: number): { from: string; to: string } {
     to: to.toISOString().slice(0, 10),
   };
 }
+
+export const platformApiMessagesListQueryKey = (from: string, to: string) =>
+  ["platform", "reports", "api-messages-list", from, to] as const;
+
+export type ApiMessageListItem = {
+  id: string;
+  to: string;
+  subject: string;
+  deliveryStatus: string;
+  sentAt: string | null;
+  createdAt: string;
+};
+
+export type ApiMessagesListResponse = {
+  messages: ApiMessageListItem[];
+  nextCursor: string | null;
+  noClient?: boolean;
+};
+
+export function fetchApiMessagesListPage(
+  token: string,
+  from: string,
+  to: string,
+  cursor: string | null,
+  limit = 50,
+): Promise<ApiMessagesListResponse> {
+  const sp = new URLSearchParams({
+    from,
+    to,
+    limit: String(limit),
+  });
+  if (cursor) sp.set("cursor", cursor);
+  return getJson<ApiMessagesListResponse>(
+    `/v1/platform/reports/api-messages/list?${sp.toString()}`,
+    token,
+  );
+}

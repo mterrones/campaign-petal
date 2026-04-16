@@ -1,13 +1,24 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { BarChart3, Eye, MousePointerClick, Send, AlertCircle } from "lucide-react";
 import StatCard from "@/components/StatCard";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useAuth } from "@/context/AuthContext";
+import type { ApiMessageListItem } from "@/lib/platformReports";
 import {
   defaultDateRange,
+  fetchApiMessagesListPage,
   fetchApiMessagesReport,
+  platformApiMessagesListQueryKey,
   platformApiMessagesReportQueryKey,
 } from "@/lib/platformReports";
 import {
@@ -21,8 +32,35 @@ import {
   Legend,
 } from "recharts";
 
+function deliveryStatusLabel(status: string): string {
+  const map: Record<string, string> = {
+    queued: "En cola",
+    sent: "Enviado",
+    delivered: "Entregado",
+    failed: "Fallido",
+    bounced: "Rebotado",
+  };
+  return map[status] ?? status;
+}
+
+function deliveryStatusClass(status: string): string {
+  if (status === "sent" || status === "delivered") return "text-emerald-700 dark:text-emerald-400";
+  if (status === "queued") return "text-muted-foreground";
+  if (status === "failed") return "text-destructive";
+  if (status === "bounced") return "text-amber-700 dark:text-amber-400";
+  return "";
+}
+
+function formatMessageWhen(m: ApiMessageListItem): string {
+  const iso = m.sentAt ?? m.createdAt;
+  return new Date(iso).toLocaleString(undefined, {
+    dateStyle: "short",
+    timeStyle: "medium",
+  });
+}
+
 const ReportsApi = () => {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const initial = useMemo(() => defaultDateRange(30), []);
   const [from, setFrom] = useState(initial.from);
   const [to, setTo] = useState(initial.to);
@@ -33,6 +71,16 @@ const ReportsApi = () => {
     queryFn: () =>
       fetchApiMessagesReport(token!, applied.from, applied.to),
     enabled: !!token && applied.from <= applied.to,
+  });
+
+  const listQuery = useInfiniteQuery({
+    queryKey: platformApiMessagesListQueryKey(applied.from, applied.to),
+    queryFn: ({ pageParam }) =>
+      fetchApiMessagesListPage(token!, applied.from, applied.to, pageParam, 50),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+    enabled:
+      !!token && !!user?.clientId && applied.from <= applied.to,
   });
 
   const applyFilters = () => {
@@ -49,6 +97,9 @@ const ReportsApi = () => {
       Abiertos: row.opened,
       Clicks: row.clicked,
     })) ?? [];
+
+  const detailRows =
+    listQuery.data?.pages.flatMap((p) => p.messages) ?? [];
 
   return (
     <div className="space-y-6">
@@ -157,6 +208,76 @@ const ReportsApi = () => {
               </ResponsiveContainer>
             )}
           </div>
+
+          {user?.clientId && (
+            <div className="stat-card">
+              <h3 className="font-semibold mb-4">Detalle de envíos</h3>
+              {listQuery.isPending && (
+                <p className="text-sm text-muted-foreground py-6">Cargando mensajes…</p>
+              )}
+              {listQuery.isError && (
+                <p className="text-destructive text-sm">
+                  No se pudo cargar el listado.
+                </p>
+              )}
+              {!listQuery.isPending &&
+                !listQuery.isError &&
+                detailRows.length === 0 && (
+                  <p className="text-sm text-muted-foreground py-6 text-center">
+                    No hay mensajes en este rango.
+                  </p>
+                )}
+              {!listQuery.isPending && !listQuery.isError && detailRows.length > 0 && (
+                <>
+                  <div className="rounded-md border overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="whitespace-nowrap">Fecha y hora</TableHead>
+                          <TableHead>Estado</TableHead>
+                          <TableHead>Para</TableHead>
+                          <TableHead className="min-w-[180px]">Asunto</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {detailRows.map((m) => (
+                          <TableRow key={m.id}>
+                            <TableCell className="whitespace-nowrap text-sm font-mono tabular-nums">
+                              {formatMessageWhen(m)}
+                            </TableCell>
+                            <TableCell
+                              className={`text-sm font-medium ${deliveryStatusClass(m.deliveryStatus)}`}
+                            >
+                              {deliveryStatusLabel(m.deliveryStatus)}
+                            </TableCell>
+                            <TableCell className="text-sm max-w-[220px] truncate" title={m.to}>
+                              {m.to}
+                            </TableCell>
+                            <TableCell className="text-sm max-w-[280px] truncate" title={m.subject}>
+                              {m.subject || "—"}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  {listQuery.hasNextPage && (
+                    <div className="mt-4 flex justify-center">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={listQuery.isFetchingNextPage}
+                        onClick={() => listQuery.fetchNextPage()}
+                      >
+                        {listQuery.isFetchingNextPage ? "Cargando…" : "Cargar más"}
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </>
       )}
     </div>
