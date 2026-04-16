@@ -203,6 +203,7 @@ const Login = () => {
               )}
             </Button>
           </form>
+          </div>
 
           <p className="text-center text-xs text-muted-foreground pt-4">
             ¿No tienes cuenta?{" "}
