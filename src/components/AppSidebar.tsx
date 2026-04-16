@@ -229,19 +229,6 @@ const AppSidebar = () => {
 
       {/* Footer */}
       <SidebarFooter className="p-3">
-        {/* Upgrade card — only when expanded */}
-        {!collapsed && (
-          <div className="mb-3 rounded-xl bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border border-primary/15 p-4">
-            <div className="flex items-center gap-2 mb-1.5">
-              <Sparkles className="w-4 h-4 text-primary" />
-              <span className="text-xs font-bold text-foreground">Envía más</span>
-            </div>
-            <p className="text-[11px] text-muted-foreground leading-relaxed">
-              Aumenta tu límite de envíos y desbloquea funciones avanzadas.
-            </p>
-          </div>
-        )}
-
         <Separator className="mb-3 bg-border/40" />
 
         <SidebarMenu>
