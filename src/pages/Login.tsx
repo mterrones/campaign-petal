@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -11,6 +11,80 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, Mail, Lock, ArrowRight } from "lucide-react";
 import logoImg from "@/assets/enviamas-logo-full.png";
+
+/* ── Floating envelopes animation ── */
+interface Envelope {
+  id: number;
+  left: number;
+  size: number;
+  delay: number;
+  duration: number;
+  rotate: number;
+  opacity: number;
+}
+
+const FloatingEnvelopes = () => {
+  const envelopes = useMemo<Envelope[]>(() =>
+    Array.from({ length: 8 }, (_, i) => ({
+      id: i,
+      left: 8 + Math.random() * 84,
+      size: 18 + Math.random() * 22,
+      delay: Math.random() * 6,
+      duration: 10 + Math.random() * 8,
+      rotate: -30 + Math.random() * 60,
+      opacity: 0.06 + Math.random() * 0.09,
+    })),
+    [],
+  );
+
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden>
+      {envelopes.map((e) => (
+        <div
+          key={e.id}
+          className="absolute animate-float-envelope"
+          style={{
+            left: `${e.left}%`,
+            width: e.size,
+            height: e.size,
+            animationDelay: `${e.delay}s`,
+            animationDuration: `${e.duration}s`,
+            opacity: e.opacity,
+            transform: `rotate(${e.rotate}deg)`,
+          }}
+        >
+          {/* Paper plane / envelope SVG */}
+          <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+            <rect x="4" y="14" width="56" height="36" rx="4" fill="currentColor" className="text-primary-foreground" />
+            <path d="M4 18l28 18 28-18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-primary" />
+            <path d="M4 50l20-16M60 50L40 34" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-primary/60" />
+          </svg>
+        </div>
+      ))}
+
+      {/* A few paper-plane style shapes */}
+      {[0, 1, 2].map((i) => (
+        <div
+          key={`plane-${i}`}
+          className="absolute animate-float-plane"
+          style={{
+            left: `${15 + i * 30}%`,
+            width: 28 + i * 6,
+            height: 28 + i * 6,
+            animationDelay: `${2 + i * 3}s`,
+            animationDuration: `${12 + i * 4}s`,
+            opacity: 0.08 + i * 0.03,
+          }}
+        >
+          <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+            <path d="M4 24l40-18-12 18 12 18L4 24z" fill="currentColor" className="text-primary-foreground" />
+            <path d="M32 24H16" stroke="currentColor" strokeWidth="1.5" className="text-primary/40" />
+          </svg>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 const loginSchema = z.object({
   email: z.string().min(1, "Ingresa el correo").email("Correo no válido"),
