@@ -258,19 +258,40 @@ const ReportsApi = () => {
                 No hay envíos por API en este rango de fechas.
               </p>
             ) : (
-              <ResponsiveContainer width="100%" height={320}>
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(214, 32%, 91%)" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="Enviados" fill="hsl(214, 32%, 60%)" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="Entregados" fill="hsl(142, 71%, 45%)" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="Abiertos" fill="hsl(38, 92%, 50%)" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="Clicks" fill="hsl(199, 89%, 48%)" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              <ApexChart
+                type="bar"
+                height={340}
+                series={[
+                  { name: "Enviados", data: chartData.map((d) => d.Enviados) },
+                  { name: "Entregados", data: chartData.map((d) => d.Entregados) },
+                  { name: "Abiertos", data: chartData.map((d) => d.Abiertos) },
+                  { name: "Clicks", data: chartData.map((d) => d.Clicks) },
+                ]}
+                options={{
+                  ...baseChartOptions,
+                  chart: { ...baseChartOptions.chart, type: "bar", stacked: false },
+                  colors: [apexPalette.muted, apexPalette.success, apexPalette.warning, apexPalette.info],
+                  plotOptions: {
+                    bar: {
+                      horizontal: false,
+                      columnWidth: "65%",
+                      borderRadius: 5,
+                      borderRadiusApplication: "end",
+                    },
+                  },
+                  stroke: { show: true, width: 2, colors: ["transparent"] },
+                  xaxis: {
+                    ...baseChartOptions.xaxis,
+                    categories: chartData.map((d) => d.name),
+                  },
+                  yaxis: {
+                    ...baseChartOptions.yaxis,
+                    labels: { ...(baseChartOptions.yaxis as { labels?: object })?.labels, formatter: (v: number) => v.toLocaleString() },
+                  },
+                  legend: { ...baseChartOptions.legend, position: "top", horizontalAlign: "right" },
+                  tooltip: { ...baseChartOptions.tooltip, shared: true, intersect: false, y: { formatter: (v: number) => v.toLocaleString() } },
+                } satisfies ApexOptions}
+              />
             )}
           </div>
 

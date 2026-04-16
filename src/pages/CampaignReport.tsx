@@ -222,7 +222,7 @@ const CampaignReport = () => {
               options={{
                 ...baseChartOptions,
                 chart: { ...baseChartOptions.chart, type: "bar" },
-                colors: [apexPalette.primary],
+                colors: [apexPalette.primary, apexPalette.success, apexPalette.warning, apexPalette.info],
                 plotOptions: {
                   bar: {
                     horizontal: true,
@@ -232,7 +232,6 @@ const CampaignReport = () => {
                     distributed: true,
                   },
                 },
-                colors: [apexPalette.primary, apexPalette.success, apexPalette.warning, apexPalette.info],
                 xaxis: {
                   ...baseChartOptions.xaxis,
                   categories: engagementData.map((d) => d.name),
