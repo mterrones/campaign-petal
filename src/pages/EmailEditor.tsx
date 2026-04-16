@@ -479,9 +479,26 @@ const EmailEditor = () => {
             <Button variant="outline" size="sm" onClick={handleCopyHtml}><Copy className="w-3.5 h-3.5 mr-1.5" />Copiar HTML</Button>
             <Button variant="outline" size="sm" onClick={handleExportHtml}><Download className="w-3.5 h-3.5 mr-1.5" />Exportar</Button>
             {isTemplateMode ? (
-              <Button size="sm" onClick={openSaveTemplateDialog}>
-                <Save className="w-3.5 h-3.5 mr-1.5" />Guardar plantilla
-              </Button>
+              <>
+                <Button size="sm" onClick={openSaveTemplateDialog}>
+                  <Save className="w-3.5 h-3.5 mr-1.5" />Guardar plantilla
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="bg-success text-success-foreground hover:bg-success/90"
+                  onClick={() => {
+                    if (!savedTemplateId) {
+                      toast.info("Guarda la plantilla antes de lanzar la campaña");
+                      openSaveTemplateDialog();
+                      return;
+                    }
+                    navigate(`/campaigns/editor?template=user:${savedTemplateId}`);
+                  }}
+                >
+                  <Send className="w-3.5 h-3.5 mr-1.5" />Lanzar campaña
+                </Button>
+              </>
             ) : (
               <>
                 <Button variant="outline" size="sm" onClick={openSaveTemplateDialog}>
@@ -502,9 +519,25 @@ const EmailEditor = () => {
           <Button variant="outline" size="sm" onClick={handleCopyHtml}><Copy className="w-3.5 h-3.5 mr-1" />Copiar</Button>
           <Button variant="outline" size="sm" onClick={handleExportHtml}><Download className="w-3.5 h-3.5 mr-1" />Exportar</Button>
           {isTemplateMode ? (
-            <Button size="sm" onClick={openSaveTemplateDialog}>
-              <Save className="w-3.5 h-3.5 mr-1" />Guardar
-            </Button>
+            <>
+              <Button size="sm" onClick={openSaveTemplateDialog}>
+                <Save className="w-3.5 h-3.5 mr-1" />Guardar
+              </Button>
+              <Button
+                size="sm"
+                className="bg-success text-success-foreground hover:bg-success/90"
+                onClick={() => {
+                  if (!savedTemplateId) {
+                    toast.info("Guarda la plantilla antes de lanzar la campaña");
+                    openSaveTemplateDialog();
+                    return;
+                  }
+                  navigate(`/campaigns/editor?template=user:${savedTemplateId}`);
+                }}
+              >
+                <Send className="w-3.5 h-3.5 mr-1" />Campaña
+              </Button>
+            </>
           ) : (
             <>
               <Button variant="outline" size="sm" onClick={openSaveTemplateDialog}>
