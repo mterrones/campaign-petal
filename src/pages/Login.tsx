@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -176,8 +176,8 @@ const Login = () => {
     <div className="min-h-screen flex">
       {/* Left panel — branding */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-primary">
-        {/* Floating envelopes */}
-        <FloatingEnvelopes />
+        {/* Paper plane animation */}
+        <PaperPlaneAnimation />
         {/* Decorative shapes */}
         <div className="absolute inset-0">
           <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-primary-foreground/5" />
