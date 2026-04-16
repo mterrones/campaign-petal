@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, FilePlus, LayoutTemplate, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { listUserTemplates, type UserTemplate } from "@/lib/userTemplates";
@@ -52,19 +52,33 @@ function Preview({
 
 const CampaignNew = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [userTemplates, setUserTemplates] = useState<UserTemplate[]>([]);
+
+  const goEditor = useMemo(
+    () => (param?: string) => {
+      if (param) {
+        navigate(`/campaigns/editor?template=${encodeURIComponent(param)}`);
+      } else {
+        navigate(`/campaigns/editor?template=blank`);
+      }
+    },
+    [navigate],
+  );
 
   useEffect(() => {
     setUserTemplates(listUserTemplates());
   }, []);
 
-  const goEditor = (param?: string) => {
-    if (param) {
-      navigate(`/campaigns/editor?template=${encodeURIComponent(param)}`);
-    } else {
-      navigate(`/campaigns/editor?template=blank`);
+  // If we arrived with ?template=..., jump straight into the editor.
+  useEffect(() => {
+    const tpl = searchParams.get("template");
+    if (tpl) {
+      navigate(`/campaigns/editor?template=${encodeURIComponent(tpl)}`, {
+        replace: true,
+      });
     }
-  };
+  }, [searchParams, navigate]);
 
   return (
     <div className="space-y-6">
