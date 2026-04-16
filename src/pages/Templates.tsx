@@ -194,40 +194,46 @@ const Templates = () => {
               >
                 <MiniPreview tpl={tpl} />
               </button>
-              <div className="p-3 flex items-start gap-2 border-t">
-                <div className="min-w-0 flex-1">
-                  <h3 className="font-semibold text-sm text-foreground truncate">
-                    {tpl.name}
-                  </h3>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {tpl.description || tpl.subject || "Sin descripción"}
-                  </p>
+              <div className="p-3 border-t space-y-3">
+                <div className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-semibold text-sm text-foreground truncate">
+                      {tpl.name}
+                    </h3>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {tpl.description || tpl.subject || "Sin descripción"}
+                    </p>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                        <MoreHorizontal className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => navigate(`/templates/${tpl.id}/edit`)}>
+                        <Pencil className="w-4 h-4 mr-2" /> Editar
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleDuplicate(tpl.id)}>
+                        <Copy className="w-4 h-4 mr-2" /> Duplicar
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => setToDelete(tpl)}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" /> Eliminar
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-                      <MoreHorizontal className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => navigate(`/templates/${tpl.id}/edit`)}>
-                      <Pencil className="w-4 h-4 mr-2" /> Editar
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleUseInCampaign(tpl.id)}>
-                      <Send className="w-4 h-4 mr-2" /> Usar en campaña
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleDuplicate(tpl.id)}>
-                      <Copy className="w-4 h-4 mr-2" /> Duplicar
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      className="text-destructive focus:text-destructive"
-                      onClick={() => setToDelete(tpl)}
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" /> Eliminar
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <Button
+                  size="sm"
+                  className="w-full"
+                  onClick={() => handleUseInCampaign(tpl.id)}
+                >
+                  <Send className="w-3.5 h-3.5 mr-2" /> Lanzar campaña
+                </Button>
               </div>
             </div>
           ))}
