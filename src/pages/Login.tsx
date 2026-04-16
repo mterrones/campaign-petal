@@ -12,80 +12,116 @@ import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, Mail, Lock, ArrowRight } from "lucide-react";
 import logoImg from "@/assets/enviamas-logo-full.png";
 
-/* ── Floating envelopes animation ── */
-interface Envelope {
-  id: number;
-  left: number;
-  size: number;
-  delay: number;
-  duration: number;
-  rotate: number;
-  opacity: number;
-}
-
-const FloatingEnvelopes = () => {
-  const envelopes = useMemo<Envelope[]>(() =>
-    Array.from({ length: 8 }, (_, i) => ({
-      id: i,
-      left: 8 + Math.random() * 84,
-      size: 18 + Math.random() * 22,
-      delay: Math.random() * 6,
-      duration: 10 + Math.random() * 8,
-      rotate: -30 + Math.random() * 60,
-      opacity: 0.06 + Math.random() * 0.09,
-    })),
-    [],
-  );
-
+/* ── Paper plane doing a figure-8 with trail ── */
+const PaperPlaneAnimation = () => {
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden>
-      {envelopes.map((e) => (
-        <div
-          key={e.id}
-          className="absolute animate-float-envelope"
-          style={{
-            left: `${e.left}%`,
-            width: e.size,
-            height: e.size,
-            animationDelay: `${e.delay}s`,
-            animationDuration: `${e.duration}s`,
-            opacity: e.opacity,
-            transform: `rotate(${e.rotate}deg)`,
-          }}
-        >
-          {/* Paper plane / envelope SVG */}
-          <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-            <rect x="4" y="14" width="56" height="36" rx="4" fill="currentColor" className="text-primary-foreground" />
-            <path d="M4 18l28 18 28-18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-primary" />
-            <path d="M4 50l20-16M60 50L40 34" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-primary/60" />
-          </svg>
-        </div>
-      ))}
+      <svg
+        className="absolute inset-0 w-full h-full"
+        viewBox="0 0 600 500"
+        preserveAspectRatio="xMidYMid slice"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <defs>
+          {/* Figure-8 path */}
+          <path
+            id="figure8"
+            d="M300,250
+               C300,140 450,80 450,190
+               C450,300 300,360 300,250
+               C300,140 150,80 150,190
+               C150,300 300,360 300,250Z"
+            fill="none"
+          />
+          {/* Gradient for the trail */}
+          <linearGradient id="trailGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="white" stopOpacity="0" />
+            <stop offset="60%" stopColor="white" stopOpacity="0.15" />
+            <stop offset="100%" stopColor="white" stopOpacity="0.3" />
+          </linearGradient>
+        </defs>
 
-      {/* A few paper-plane style shapes */}
-      {[0, 1, 2].map((i) => (
-        <div
-          key={`plane-${i}`}
-          className="absolute animate-float-plane"
-          style={{
-            left: `${15 + i * 30}%`,
-            width: 28 + i * 6,
-            height: 28 + i * 6,
-            animationDelay: `${2 + i * 3}s`,
-            animationDuration: `${12 + i * 4}s`,
-            opacity: 0.08 + i * 0.03,
-          }}
+        {/* Trail — animated dashed stroke following same path */}
+        <use
+          href="#figure8"
+          stroke="url(#trailGrad)"
+          strokeWidth="2"
+          strokeDasharray="80 520"
+          strokeLinecap="round"
+          fill="none"
         >
-          <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-            <path d="M4 24l40-18-12 18 12 18L4 24z" fill="currentColor" className="text-primary-foreground" />
-            <path d="M32 24H16" stroke="currentColor" strokeWidth="1.5" className="text-primary/40" />
-          </svg>
-        </div>
-      ))}
+          <animate
+            attributeName="stroke-dashoffset"
+            from="600"
+            to="0"
+            dur="8s"
+            repeatCount="indefinite"
+          />
+        </use>
+
+        {/* Secondary softer trail */}
+        <use
+          href="#figure8"
+          stroke="white"
+          strokeOpacity="0.08"
+          strokeWidth="6"
+          strokeDasharray="60 540"
+          strokeLinecap="round"
+          fill="none"
+        >
+          <animate
+            attributeName="stroke-dashoffset"
+            from="600"
+            to="0"
+            dur="8s"
+            repeatCount="indefinite"
+          />
+        </use>
+
+        {/* Sparkle dots along trail */}
+        {[0, 1, 2, 3, 4].map((i) => (
+          <circle key={i} r="2" fill="white" opacity="0">
+            <animateMotion dur="8s" repeatCount="indefinite" begin={`${i * 0.3}s`}>
+              <mpath href="#figure8" />
+            </animateMotion>
+            <animate
+              attributeName="opacity"
+              values="0;0.5;0"
+              dur="1.5s"
+              repeatCount="indefinite"
+              begin={`${i * 0.3}s`}
+            />
+          </circle>
+        ))}
+
+        {/* The paper plane */}
+        <g>
+          <animateMotion
+            dur="8s"
+            repeatCount="indefinite"
+            rotate="auto"
+          >
+            <mpath href="#figure8" />
+          </animateMotion>
+          {/* plane body */}
+          <polygon
+            points="-14,0 10,-5 10,5"
+            fill="white"
+            opacity="0.9"
+          />
+          {/* wing fold line */}
+          <line x1="-8" y1="0" x2="8" y2="0" stroke="white" strokeOpacity="0.3" strokeWidth="0.8" />
+          {/* top wing */}
+          <polygon
+            points="-4,-1 8,-5 6,0"
+            fill="white"
+            opacity="0.6"
+          />
+        </g>
+      </svg>
     </div>
   );
 };
-
 const loginSchema = z.object({
   email: z.string().min(1, "Ingresa el correo").email("Correo no válido"),
   password: z.string().min(1, "Ingresa la contraseña"),
