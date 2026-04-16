@@ -1,7 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Save, Send, GripVertical, Trash2, Copy, Undo2, Redo2, Download, Monitor, Smartphone, Settings, Code, PanelRight, LayoutGrid } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { emailTemplates } from "@/components/email-editor/templates";
+import {
+  getUserTemplate,
+  saveUserTemplate,
+} from "@/lib/userTemplates";
 import { useAuth } from "@/context/AuthContext";
 import { ApiError, patchJson, postJson } from "@/lib/api";
 import {
