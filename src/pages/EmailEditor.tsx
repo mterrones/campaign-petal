@@ -1,7 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Save, Send, GripVertical, Trash2, Copy, Undo2, Redo2, Download, Monitor, Smartphone, Settings, Code, PanelRight, LayoutGrid } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { emailTemplates } from "@/components/email-editor/templates";
+import {
+  getUserTemplate,
+  saveUserTemplate,
+} from "@/lib/userTemplates";
 import { useAuth } from "@/context/AuthContext";
 import { ApiError, patchJson, postJson } from "@/lib/api";
 import {
@@ -72,8 +77,23 @@ const EmailEditor = () => {
   const editor = useEmailEditor();
   const { token } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const params = useParams<{ id?: string }>();
+  const [searchParams] = useSearchParams();
+
+  // Mode: template editor vs campaign editor
+  const isTemplateMode = location.pathname.startsWith("/templates/");
+  const editingTemplateId = isTemplateMode ? params.id ?? null : null;
+
   const campaignInitRef = useRef(false);
+  const templateLoadRef = useRef(false);
   const [campaignId, setCampaignId] = useState<string | null>(null);
+  const [savedTemplateId, setSavedTemplateId] = useState<string | null>(editingTemplateId);
+  const [saveTplDialogOpen, setSaveTplDialogOpen] = useState(false);
+  const [tplDescription, setTplDescription] = useState("");
+  const [tplSubmitting, setTplSubmitting] = useState(false);
+
   const isMobile = useIsMobile();
   const [htmlCode, setHtmlCode] = useState("");
   const [htmlDirty, setHtmlDirty] = useState(false);
@@ -91,7 +111,63 @@ const EmailEditor = () => {
     ? editor.blocks.find(b => b.id === editor.selectedInner!.blockId)?.columns?.[editor.selectedInner!.colIndex]?.find(i => i.id === editor.selectedInner!.innerId) || null
     : null;
 
+  // Preload template (from URL param or template being edited) and skip the selector.
   useEffect(() => {
+    if (templateLoadRef.current) return;
+    const templateParam = searchParams.get("template");
+
+    if (isTemplateMode) {
+      templateLoadRef.current = true;
+      if (editingTemplateId) {
+        const tpl = getUserTemplate(editingTemplateId);
+        if (tpl) {
+          editor.setPreviewName(tpl.name);
+          editor.setSubject(tpl.subject || tpl.name);
+          setTplDescription(tpl.description || "");
+          editor.loadTemplate(tpl.blocks, tpl.globalStyles);
+        } else {
+          toast.error("Plantilla no encontrada");
+          navigate("/templates", { replace: true });
+        }
+      } else {
+        // /templates/new — start blank without showing the selector
+        editor.setPreviewName("Plantilla sin título");
+        editor.loadTemplate([], {});
+      }
+      return;
+    }
+
+    // Campaign mode — handle ?template=blank|builtin:id|user:id
+    if (templateParam) {
+      templateLoadRef.current = true;
+      if (templateParam === "blank") {
+        editor.loadTemplate([], {});
+      } else if (templateParam.startsWith("user:")) {
+        const id = templateParam.slice(5);
+        const tpl = getUserTemplate(id);
+        if (tpl) {
+          editor.setSubject(tpl.subject || editor.subject);
+          editor.setPreviewName(tpl.name);
+          editor.loadTemplate(tpl.blocks, tpl.globalStyles);
+        } else {
+          toast.error("Plantilla no encontrada");
+          editor.loadTemplate([], {});
+        }
+      } else if (templateParam.startsWith("builtin:")) {
+        const id = templateParam.slice(8);
+        const tpl = emailTemplates.find((t) => t.id === id);
+        if (tpl) {
+          editor.loadTemplate(tpl.blocks, tpl.globalStyles);
+        } else {
+          editor.loadTemplate([], {});
+        }
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (isTemplateMode) return;
     if (!token || editor.showTemplateSelector) return;
     if (campaignInitRef.current) return;
     campaignInitRef.current = true;
@@ -107,9 +183,10 @@ const EmailEditor = () => {
         campaignInitRef.current = false;
         toast.error("No se pudo preparar la campaña");
       });
-  }, [token, editor.showTemplateSelector]);
+  }, [token, editor.showTemplateSelector, isTemplateMode]);
 
   useEffect(() => {
+    if (isTemplateMode) return;
     if (!token || !campaignId) return;
     const handle = window.setTimeout(() => {
       void patchJson<PatchCampaignResponse>(
@@ -305,7 +382,41 @@ const EmailEditor = () => {
     }
   };
 
-  if (editor.showTemplateSelector) {
+  const openSaveTemplateDialog = () => setSaveTplDialogOpen(true);
+
+  const handleSaveTemplate = () => {
+    const name = editor.previewName.trim();
+    if (!name) {
+      toast.error("Ponle un nombre a la plantilla");
+      return;
+    }
+    if (editor.blocks.length === 0) {
+      toast.error("Agrega al menos un bloque antes de guardar");
+      return;
+    }
+    setTplSubmitting(true);
+    try {
+      const saved = saveUserTemplate({
+        id: savedTemplateId ?? undefined,
+        name,
+        description: tplDescription.trim(),
+        subject: editor.subject.trim(),
+        blocks: editor.blocks,
+        globalStyles: editor.globalStyles,
+      });
+      setSavedTemplateId(saved.id);
+      toast.success("Plantilla guardada");
+      setSaveTplDialogOpen(false);
+      if (!editingTemplateId) {
+        navigate(`/templates/${saved.id}/edit`, { replace: true });
+      }
+    } finally {
+      setTplSubmitting(false);
+    }
+  };
+
+  // Fallback to inline selector only if neither template nor URL param is set.
+  if (editor.showTemplateSelector && !isTemplateMode && !searchParams.get("template")) {
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-3">
@@ -331,14 +442,14 @@ const EmailEditor = () => {
       {/* Top bar */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0 flex-1">
-          <Link to="/campaigns">
+          <Link to={isTemplateMode ? "/templates" : "/campaigns"}>
             <Button variant="ghost" size="icon" className="shrink-0"><ArrowLeft className="w-4 h-4" /></Button>
           </Link>
           <Input
             value={editor.previewName}
             onChange={e => editor.setPreviewName(e.target.value)}
             className="text-base sm:text-lg font-bold border-none shadow-none p-0 h-auto focus-visible:ring-0 w-full max-w-[200px] sm:max-w-[300px]"
-            placeholder="Nombre de la campaña"
+            placeholder={isTemplateMode ? "Nombre de la plantilla" : "Nombre de la campaña"}
           />
         </div>
         <div className="flex gap-1 items-center shrink-0">
@@ -362,10 +473,20 @@ const EmailEditor = () => {
             <div className="w-px h-6 bg-border mx-1" />
             <Button variant="outline" size="sm" onClick={handleCopyHtml}><Copy className="w-3.5 h-3.5 mr-1.5" />Copiar HTML</Button>
             <Button variant="outline" size="sm" onClick={handleExportHtml}><Download className="w-3.5 h-3.5 mr-1.5" />Exportar</Button>
-            <Button variant="outline" size="sm"><Save className="w-3.5 h-3.5 mr-1.5" />Guardar</Button>
-            <Button size="sm" onClick={openSendDialog}>
-              <Send className="w-3.5 h-3.5 mr-1.5" />Enviar
-            </Button>
+            {isTemplateMode ? (
+              <Button size="sm" onClick={openSaveTemplateDialog}>
+                <Save className="w-3.5 h-3.5 mr-1.5" />Guardar plantilla
+              </Button>
+            ) : (
+              <>
+                <Button variant="outline" size="sm" onClick={openSaveTemplateDialog}>
+                  <Save className="w-3.5 h-3.5 mr-1.5" />Guardar como plantilla
+                </Button>
+                <Button size="sm" onClick={openSendDialog}>
+                  <Send className="w-3.5 h-3.5 mr-1.5" />Enviar
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -375,10 +496,20 @@ const EmailEditor = () => {
         <div className="flex gap-2 overflow-x-auto pb-1">
           <Button variant="outline" size="sm" onClick={handleCopyHtml}><Copy className="w-3.5 h-3.5 mr-1" />Copiar</Button>
           <Button variant="outline" size="sm" onClick={handleExportHtml}><Download className="w-3.5 h-3.5 mr-1" />Exportar</Button>
-          <Button variant="outline" size="sm"><Save className="w-3.5 h-3.5 mr-1" />Guardar</Button>
-          <Button size="sm" onClick={openSendDialog}>
-            <Send className="w-3.5 h-3.5 mr-1" />Enviar
-          </Button>
+          {isTemplateMode ? (
+            <Button size="sm" onClick={openSaveTemplateDialog}>
+              <Save className="w-3.5 h-3.5 mr-1" />Guardar
+            </Button>
+          ) : (
+            <>
+              <Button variant="outline" size="sm" onClick={openSaveTemplateDialog}>
+                <Save className="w-3.5 h-3.5 mr-1" />Plantilla
+              </Button>
+              <Button size="sm" onClick={openSendDialog}>
+                <Send className="w-3.5 h-3.5 mr-1" />Enviar
+              </Button>
+            </>
+          )}
         </div>
       )}
 
@@ -767,6 +898,51 @@ const EmailEditor = () => {
               </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Save template dialog */}
+      <Dialog open={saveTplDialogOpen} onOpenChange={setSaveTplDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {savedTemplateId ? "Actualizar plantilla" : "Guardar como plantilla"}
+            </DialogTitle>
+            <DialogDescription>
+              Tus plantillas se guardan en este navegador y podrás reutilizarlas
+              al crear nuevas campañas.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="tpl-name">Nombre</Label>
+              <Input
+                id="tpl-name"
+                value={editor.previewName}
+                onChange={(e) => editor.setPreviewName(e.target.value)}
+                placeholder="Ej. Newsletter mensual"
+                disabled={tplSubmitting}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="tpl-desc">Descripción (opcional)</Label>
+              <Input
+                id="tpl-desc"
+                value={tplDescription}
+                onChange={(e) => setTplDescription(e.target.value)}
+                placeholder="Para qué sirve esta plantilla"
+                disabled={tplSubmitting}
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => setSaveTplDialogOpen(false)} disabled={tplSubmitting}>
+              Cancelar
+            </Button>
+            <Button type="button" onClick={handleSaveTemplate} disabled={tplSubmitting}>
+              {tplSubmitting ? "Guardando…" : savedTemplateId ? "Actualizar" : "Guardar"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
