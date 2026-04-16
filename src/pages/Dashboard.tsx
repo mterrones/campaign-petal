@@ -6,9 +6,9 @@ import StatCard from "@/components/StatCard";
 import DailyQuotaCard from "@/components/DailyQuotaCard";
 import CampaignStatusBadge from "@/components/CampaignStatusBadge";
 import { Progress } from "@/components/ui/progress";
-import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-} from "recharts";
+import ApexChart from "@/components/charts/ApexChart";
+import { apexPalette, baseChartOptions } from "@/lib/apexTheme";
+import type { ApexOptions } from "apexcharts";
 import { useAuth } from "@/context/AuthContext";
 import { getJson } from "@/lib/api";
 import {
@@ -182,102 +182,60 @@ const Dashboard = () => {
       </div>
 
       <div className="rounded-2xl border bg-card p-6 shadow-sm">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
           <div>
             <h2 className="text-lg font-bold text-foreground">Rendimiento de Campañas</h2>
             <p className="text-sm text-muted-foreground mt-0.5">Últimos 4 meses</p>
           </div>
-          <div className="flex gap-5 text-xs font-medium">
-            <span className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-primary shadow-sm shadow-primary/30" />
-              <span className="text-muted-foreground">Entregas</span>
-            </span>
-            <span className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-success shadow-sm shadow-success/30" />
-              <span className="text-muted-foreground">Abiertos</span>
-            </span>
-            <span className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-info shadow-sm shadow-info/30" />
-              <span className="text-muted-foreground">Clicks</span>
-            </span>
-          </div>
         </div>
 
-        {/* Chart */}
-        <ResponsiveContainer width="100%" height={300}>
-          <AreaChart data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-            <defs>
-              <linearGradient id="gEnviados" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="hsl(25, 95%, 53%)" stopOpacity={0.25} />
-                <stop offset="100%" stopColor="hsl(25, 95%, 53%)" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="gAbiertos" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="hsl(152, 60%, 42%)" stopOpacity={0.2} />
-                <stop offset="100%" stopColor="hsl(152, 60%, 42%)" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="gClicks" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="hsl(210, 92%, 55%)" stopOpacity={0.15} />
-                <stop offset="100%" stopColor="hsl(210, 92%, 55%)" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="4 4" stroke="hsl(220, 13%, 91%)" vertical={false} />
-            <XAxis
-              dataKey="name"
-              axisLine={false}
-              tickLine={false}
-              tick={{ fontSize: 12, fill: "hsl(220, 10%, 46%)" }}
-              dy={10}
-            />
-            <YAxis
-              axisLine={false}
-              tickLine={false}
-              tick={{ fontSize: 11, fill: "hsl(220, 10%, 46%)" }}
-              dx={-5}
-            />
-            <Tooltip
-              contentStyle={{
-                borderRadius: "12px",
-                border: "1px solid hsl(220, 13%, 91%)",
-                boxShadow: "0 8px 24px -4px rgba(0,0,0,0.08)",
-                fontSize: "12px",
-                padding: "10px 14px",
-                background: "hsl(0, 0%, 100%)",
-              }}
-              cursor={{ stroke: "hsl(25, 95%, 53%)", strokeWidth: 1, strokeDasharray: "4 4" }}
-            />
-            <Area
-              type="monotone"
-              dataKey="enviados"
-              stroke="hsl(25, 95%, 53%)"
-              fillOpacity={1}
-              fill="url(#gEnviados)"
-              strokeWidth={2.5}
-              dot={false}
-              activeDot={{ r: 5, strokeWidth: 2, fill: "white", stroke: "hsl(25, 95%, 53%)" }}
-            />
-            <Area
-              type="monotone"
-              dataKey="abiertos"
-              stroke="hsl(152, 60%, 42%)"
-              fillOpacity={1}
-              fill="url(#gAbiertos)"
-              strokeWidth={2.5}
-              dot={false}
-              activeDot={{ r: 5, strokeWidth: 2, fill: "white", stroke: "hsl(152, 60%, 42%)" }}
-            />
-            <Area
-              type="monotone"
-              dataKey="clicks"
-              stroke="hsl(210, 92%, 55%)"
-              fillOpacity={1}
-              fill="url(#gClicks)"
-              strokeWidth={2.5}
-              dot={false}
-              activeDot={{ r: 5, strokeWidth: 2, fill: "white", stroke: "hsl(210, 92%, 55%)" }}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
+        <ApexChart
+          type="area"
+          height={320}
+          series={[
+            { name: "Entregas", data: chartData.map((r) => r.enviados) },
+            { name: "Abiertos", data: chartData.map((r) => r.abiertos) },
+            { name: "Clicks", data: chartData.map((r) => r.clicks) },
+          ]}
+          options={{
+            ...baseChartOptions,
+            chart: { ...baseChartOptions.chart, type: "area", stacked: false },
+            colors: [apexPalette.primary, apexPalette.success, apexPalette.info],
+            stroke: { curve: "smooth", width: 3 },
+            fill: {
+              type: "gradient",
+              gradient: {
+                shadeIntensity: 1,
+                opacityFrom: 0.45,
+                opacityTo: 0.05,
+                stops: [0, 90, 100],
+              },
+            },
+            markers: { size: 0, hover: { size: 6 } },
+            xaxis: {
+              ...baseChartOptions.xaxis,
+              categories: chartData.map((r) => r.name),
+            },
+            yaxis: {
+              ...baseChartOptions.yaxis,
+              labels: {
+                ...(baseChartOptions.yaxis as { labels?: object })?.labels,
+                formatter: (v: number) => v.toLocaleString(),
+              },
+            },
+            tooltip: {
+              ...baseChartOptions.tooltip,
+              shared: true,
+              intersect: false,
+              y: { formatter: (v: number) => v.toLocaleString() },
+            },
+            legend: {
+              ...baseChartOptions.legend,
+              position: "top",
+              horizontalAlign: "right",
+            },
+          } satisfies ApexOptions}
+        />
       </div>
 
       <div className="stat-card">

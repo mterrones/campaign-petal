@@ -19,9 +19,9 @@ import {
   platformCampaignMessagesQueryKey,
   platformCampaignQueryKey,
 } from "@/lib/platformCampaigns";
-import {
-  PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
-} from "recharts";
+import ApexChart from "@/components/charts/ApexChart";
+import { apexPalette, baseChartOptions } from "@/lib/apexTheme";
+import type { ApexOptions } from "apexcharts";
 
 const MESSAGE_PAGE_SIZE = 50;
 
@@ -159,26 +159,54 @@ const CampaignReport = () => {
           {pieData.length === 0 ? (
             <p className="text-sm text-muted-foreground py-8 text-center">Sin datos de entrega aún.</p>
           ) : (
-            <>
-              <ResponsiveContainer width="100%" height={250}>
-                <PieChart>
-                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={2} dataKey="value">
-                    {pieData.map((entry, i) => (
-                      <Cell key={i} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value: number) => value.toLocaleString()} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="flex justify-center gap-4 text-xs flex-wrap">
-                {pieData.map((d) => (
-                  <span key={d.name} className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.color }} />
-                    {d.name}: {d.value.toLocaleString()}
-                  </span>
-                ))}
-              </div>
-            </>
+            <ApexChart
+              type="donut"
+              height={280}
+              series={pieData.map((d) => d.value)}
+              options={{
+                ...baseChartOptions,
+                chart: { ...baseChartOptions.chart, type: "donut" },
+                labels: pieData.map((d) => d.name),
+                colors: [apexPalette.success, apexPalette.destructive, apexPalette.muted],
+                stroke: { width: 2, colors: ["#fff"] },
+                legend: {
+                  ...baseChartOptions.legend,
+                  position: "bottom",
+                  formatter: (seriesName: string, opts: { w: { globals: { series: number[] } }; seriesIndex: number }) =>
+                    `${seriesName}: ${opts.w.globals.series[opts.seriesIndex].toLocaleString()}`,
+                },
+                plotOptions: {
+                  pie: {
+                    donut: {
+                      size: "70%",
+                      labels: {
+                        show: true,
+                        name: { fontSize: "13px", color: apexPalette.text },
+                        value: {
+                          fontSize: "22px",
+                          fontWeight: 700,
+                          color: apexPalette.textStrong,
+                          formatter: (v: string) => Number(v).toLocaleString(),
+                        },
+                        total: {
+                          show: true,
+                          label: "Total",
+                          color: apexPalette.text,
+                          formatter: (w: { globals: { seriesTotals: number[] } }) =>
+                            w.globals.seriesTotals.reduce((a, b) => a + b, 0).toLocaleString(),
+                        },
+                      },
+                    },
+                  },
+                },
+                dataLabels: {
+                  enabled: true,
+                  style: { fontSize: "11px", fontWeight: 600 },
+                  dropShadow: { enabled: false },
+                },
+                tooltip: { ...baseChartOptions.tooltip, y: { formatter: (v: number) => v.toLocaleString() } },
+              } satisfies ApexOptions}
+            />
           )}
         </div>
 
@@ -187,15 +215,39 @@ const CampaignReport = () => {
           {engagementData.length === 0 ? (
             <p className="text-sm text-muted-foreground py-8 text-center">Sin datos.</p>
           ) : (
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={engagementData} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(214, 32%, 91%)" />
-                <XAxis type="number" tick={{ fontSize: 12 }} />
-                <YAxis dataKey="name" type="category" tick={{ fontSize: 12 }} width={80} />
-                <Tooltip formatter={(value: number) => value.toLocaleString()} />
-                <Bar dataKey="value" fill="hsl(217, 91%, 60%)" radius={[0, 6, 6, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <ApexChart
+              type="bar"
+              height={280}
+              series={[{ name: "Total", data: engagementData.map((d) => d.value) }]}
+              options={{
+                ...baseChartOptions,
+                chart: { ...baseChartOptions.chart, type: "bar" },
+                colors: [apexPalette.primary, apexPalette.success, apexPalette.warning, apexPalette.info],
+                plotOptions: {
+                  bar: {
+                    horizontal: true,
+                    borderRadius: 6,
+                    borderRadiusApplication: "end",
+                    barHeight: "70%",
+                    distributed: true,
+                  },
+                },
+                xaxis: {
+                  ...baseChartOptions.xaxis,
+                  categories: engagementData.map((d) => d.name),
+                  labels: { ...baseChartOptions.xaxis?.labels, formatter: (v: string) => Number(v).toLocaleString() },
+                },
+                legend: { show: false },
+                dataLabels: {
+                  enabled: true,
+                  textAnchor: "start",
+                  offsetX: 0,
+                  style: { fontSize: "11px", fontWeight: 600, colors: ["#fff"] },
+                  formatter: (v: number) => v.toLocaleString(),
+                },
+                tooltip: { ...baseChartOptions.tooltip, y: { formatter: (v: number) => v.toLocaleString() } },
+              } satisfies ApexOptions}
+            />
           )}
         </div>
       </div>
