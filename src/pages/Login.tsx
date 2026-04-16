@@ -15,7 +15,7 @@ import logoImg from "@/assets/enviamas-logo-full.png";
 /* ── Paper plane doing a figure-8 with trail ── */
 const PaperPlaneAnimation = () => {
   // Generate dots along the trail that fade behind the plane
-  const trailDots = Array.from({ length: 18 }, (_, i) => i);
+  const trailDots = Array.from({ length: 8 }, (_, i) => i);
 
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden>
