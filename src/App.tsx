@@ -8,6 +8,7 @@ import AppLayout from "./components/AppLayout";
 import RequireAuth from "./components/RequireAuth";
 import Dashboard from "./pages/Dashboard";
 import Campaigns from "./pages/Campaigns";
+import CampaignNew from "./pages/CampaignNew";
 import EmailEditor from "./pages/EmailEditor";
 import Contacts from "./pages/Contacts";
 import Reports from "./pages/Reports";
