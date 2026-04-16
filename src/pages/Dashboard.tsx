@@ -6,9 +6,9 @@ import StatCard from "@/components/StatCard";
 import DailyQuotaCard from "@/components/DailyQuotaCard";
 import CampaignStatusBadge from "@/components/CampaignStatusBadge";
 import { Progress } from "@/components/ui/progress";
-import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-} from "recharts";
+import ApexChart from "@/components/charts/ApexChart";
+import { apexPalette, baseChartOptions } from "@/lib/apexTheme";
+import type { ApexOptions } from "apexcharts";
 import { useAuth } from "@/context/AuthContext";
 import { getJson } from "@/lib/api";
 import {
