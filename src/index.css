@@ -122,3 +122,31 @@
     @apply text-muted-foreground hover:bg-accent hover:text-accent-foreground;
   }
 }
+
+/* Floating envelopes */
+@keyframes float-envelope {
+  0% {
+    transform: translateY(110vh) rotate(var(--tw-rotate, 0deg));
+  }
+  100% {
+    transform: translateY(-120px) rotate(calc(var(--tw-rotate, 0deg) + 40deg));
+  }
+}
+@keyframes float-plane {
+  0% {
+    transform: translateY(110vh) translateX(0);
+  }
+  50% {
+    transform: translateY(50vh) translateX(30px);
+  }
+  100% {
+    transform: translateY(-120px) translateX(-20px);
+  }
+}
+
+.animate-float-envelope {
+  animation: float-envelope linear infinite;
+}
+.animate-float-plane {
+  animation: float-plane linear infinite;
+}
