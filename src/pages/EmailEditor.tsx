@@ -900,6 +900,51 @@ const EmailEditor = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Save template dialog */}
+      <Dialog open={saveTplDialogOpen} onOpenChange={setSaveTplDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {savedTemplateId ? "Actualizar plantilla" : "Guardar como plantilla"}
+            </DialogTitle>
+            <DialogDescription>
+              Tus plantillas se guardan en este navegador y podrás reutilizarlas
+              al crear nuevas campañas.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="tpl-name">Nombre</Label>
+              <Input
+                id="tpl-name"
+                value={editor.previewName}
+                onChange={(e) => editor.setPreviewName(e.target.value)}
+                placeholder="Ej. Newsletter mensual"
+                disabled={tplSubmitting}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="tpl-desc">Descripción (opcional)</Label>
+              <Input
+                id="tpl-desc"
+                value={tplDescription}
+                onChange={(e) => setTplDescription(e.target.value)}
+                placeholder="Para qué sirve esta plantilla"
+                disabled={tplSubmitting}
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => setSaveTplDialogOpen(false)} disabled={tplSubmitting}>
+              Cancelar
+            </Button>
+            <Button type="button" onClick={handleSaveTemplate} disabled={tplSubmitting}>
+              {tplSubmitting ? "Guardando…" : savedTemplateId ? "Actualizar" : "Guardar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
