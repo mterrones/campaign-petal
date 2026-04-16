@@ -105,7 +105,7 @@ const PaperPlaneAnimation = () => {
           </animateMotion>
           {/* plane body */}
           <polygon
-            points="-14,0 10,-5 10,5"
+            points="14,0 -10,-5 -10,5"
             fill="white"
             opacity="0.9"
           />
@@ -113,7 +113,7 @@ const PaperPlaneAnimation = () => {
           <line x1="-8" y1="0" x2="8" y2="0" stroke="white" strokeOpacity="0.3" strokeWidth="0.8" />
           {/* top wing */}
           <polygon
-            points="-4,-1 8,-5 6,0"
+            points="4,-1 -8,-5 -6,0"
             fill="white"
             opacity="0.6"
           />
