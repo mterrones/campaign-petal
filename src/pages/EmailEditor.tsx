@@ -167,6 +167,7 @@ const EmailEditor = () => {
   }, []);
 
   useEffect(() => {
+    if (isTemplateMode) return;
     if (!token || editor.showTemplateSelector) return;
     if (campaignInitRef.current) return;
     campaignInitRef.current = true;
@@ -182,7 +183,7 @@ const EmailEditor = () => {
         campaignInitRef.current = false;
         toast.error("No se pudo preparar la campaña");
       });
-  }, [token, editor.showTemplateSelector]);
+  }, [token, editor.showTemplateSelector, isTemplateMode]);
 
   useEffect(() => {
     if (!token || !campaignId) return;
