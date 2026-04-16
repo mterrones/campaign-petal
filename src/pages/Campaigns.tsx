@@ -150,7 +150,7 @@ const Campaigns = () => {
                           >
                             Duplicar
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive">Eliminar</DropdownMenuItem>
+                          
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
