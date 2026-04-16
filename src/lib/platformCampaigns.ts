@@ -46,6 +46,9 @@ export type PlatformCampaignMessage = {
 export type CampaignMessagesResponse = {
   messages: PlatformCampaignMessage[];
   nextCursor: string | null;
+  total?: number;
+  page?: number;
+  pageSize?: number;
 };
 
 export const platformCampaignsQueryKey = ["platform-campaigns"] as const;

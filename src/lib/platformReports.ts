@@ -46,8 +46,12 @@ export function defaultDateRange(days: number): { from: string; to: string } {
   };
 }
 
-export const platformApiMessagesListQueryKey = (from: string, to: string) =>
-  ["platform", "reports", "api-messages-list", from, to] as const;
+export const platformApiMessagesListQueryKey = (
+  from: string,
+  to: string,
+  page: number,
+  limit: number,
+) => ["platform", "reports", "api-messages-list", from, to, page, limit] as const;
 
 export type ApiMessageListItem = {
   id: string;
@@ -60,23 +64,28 @@ export type ApiMessageListItem = {
 
 export type ApiMessagesListResponse = {
   messages: ApiMessageListItem[];
-  nextCursor: string | null;
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
   noClient?: boolean;
 };
+
+export const defaultApiMessagesPageSize = 20;
 
 export function fetchApiMessagesListPage(
   token: string,
   from: string,
   to: string,
-  cursor: string | null,
-  limit = 50,
+  page: number,
+  limit = defaultApiMessagesPageSize,
 ): Promise<ApiMessagesListResponse> {
   const sp = new URLSearchParams({
     from,
     to,
+    page: String(page),
     limit: String(limit),
   });
-  if (cursor) sp.set("cursor", cursor);
   return getJson<ApiMessagesListResponse>(
     `/v1/platform/reports/api-messages/list?${sp.toString()}`,
     token,

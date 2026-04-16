@@ -1,6 +1,14 @@
-import { useMemo, useState } from "react";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { BarChart3, Eye, MousePointerClick, Send, AlertCircle } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  BarChart3,
+  Eye,
+  MousePointerClick,
+  Send,
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import StatCard from "@/components/StatCard";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -15,6 +23,7 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import type { ApiMessageListItem } from "@/lib/platformReports";
 import {
+  defaultApiMessagesPageSize,
   defaultDateRange,
   fetchApiMessagesListPage,
   fetchApiMessagesReport,
@@ -65,6 +74,8 @@ const ReportsApi = () => {
   const [from, setFrom] = useState(initial.from);
   const [to, setTo] = useState(initial.to);
   const [applied, setApplied] = useState({ from: initial.from, to: initial.to });
+  const [listPage, setListPage] = useState(1);
+  const pageSize = defaultApiMessagesPageSize;
 
   const { data, isPending, isError, error, refetch } = useQuery({
     queryKey: platformApiMessagesReportQueryKey(applied.from, applied.to),
@@ -73,12 +84,21 @@ const ReportsApi = () => {
     enabled: !!token && applied.from <= applied.to,
   });
 
-  const listQuery = useInfiniteQuery({
-    queryKey: platformApiMessagesListQueryKey(applied.from, applied.to),
-    queryFn: ({ pageParam }) =>
-      fetchApiMessagesListPage(token!, applied.from, applied.to, pageParam, 50),
-    initialPageParam: null as string | null,
-    getNextPageParam: (last) => last.nextCursor ?? undefined,
+  const listQuery = useQuery({
+    queryKey: platformApiMessagesListQueryKey(
+      applied.from,
+      applied.to,
+      listPage,
+      pageSize,
+    ),
+    queryFn: () =>
+      fetchApiMessagesListPage(
+        token!,
+        applied.from,
+        applied.to,
+        listPage,
+        pageSize,
+      ),
     enabled:
       !!token && !!user?.clientId && applied.from <= applied.to,
   });
@@ -87,6 +107,17 @@ const ReportsApi = () => {
     if (from > to) return;
     setApplied({ from, to });
   };
+
+  useEffect(() => {
+    setListPage(1);
+  }, [applied.from, applied.to]);
+
+  useEffect(() => {
+    const tp = listQuery.data?.totalPages;
+    if (tp != null && tp > 0 && listPage > tp) {
+      setListPage(tp);
+    }
+  }, [listQuery.data?.totalPages, listPage]);
 
   const agg = data?.aggregate;
   const chartData =
@@ -98,8 +129,13 @@ const ReportsApi = () => {
       Clicks: row.clicked,
     })) ?? [];
 
-  const detailRows =
-    listQuery.data?.pages.flatMap((p) => p.messages) ?? [];
+  const listPayload = listQuery.data;
+  const detailRows = listPayload?.messages ?? [];
+  const listTotal = listPayload?.total ?? 0;
+  const totalPages = listPayload?.totalPages ?? 0;
+  const rangeFrom =
+    listTotal === 0 ? 0 : (listPage - 1) * pageSize + 1;
+  const rangeTo = Math.min(listPage * pageSize, listTotal);
 
   return (
     <div className="space-y-6">
@@ -261,18 +297,56 @@ const ReportsApi = () => {
                       </TableBody>
                     </Table>
                   </div>
-                  {listQuery.hasNextPage && (
-                    <div className="mt-4 flex justify-center">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={listQuery.isFetchingNextPage}
-                        onClick={() => listQuery.fetchNextPage()}
-                      >
-                        {listQuery.isFetchingNextPage ? "Cargando…" : "Cargar más"}
-                      </Button>
+                  {totalPages > 1 && (
+                    <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-sm text-muted-foreground">
+                        Mostrando{" "}
+                        <span className="font-medium text-foreground tabular-nums">
+                          {rangeFrom}–{rangeTo}
+                        </span>{" "}
+                        de{" "}
+                        <span className="font-medium text-foreground tabular-nums">
+                          {listTotal.toLocaleString()}
+                        </span>
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={listPage <= 1 || listQuery.isFetching}
+                          onClick={() => setListPage((p) => Math.max(1, p - 1))}
+                        >
+                          <ChevronLeft className="w-4 h-4 mr-1" />
+                          Anterior
+                        </Button>
+                        <span className="text-sm text-muted-foreground tabular-nums px-2">
+                          Página {listPage} de {totalPages}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={
+                            listPage >= totalPages || listQuery.isFetching
+                          }
+                          onClick={() =>
+                            setListPage((p) =>
+                              totalPages > 0 ? Math.min(totalPages, p + 1) : p,
+                            )
+                          }
+                        >
+                          Siguiente
+                          <ChevronRight className="w-4 h-4 ml-1" />
+                        </Button>
+                      </div>
                     </div>
+                  )}
+                  {totalPages === 1 && listTotal > 0 && (
+                    <p className="mt-4 text-sm text-muted-foreground">
+                      {listTotal.toLocaleString()} mensaje
+                      {listTotal === 1 ? "" : "s"} en este rango.
+                    </p>
                   )}
                 </>
               )}

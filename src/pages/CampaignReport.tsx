@@ -1,6 +1,7 @@
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
-import { ArrowLeft, Send, Eye, MousePointerClick, AlertTriangle } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Send, Eye, MousePointerClick, AlertTriangle } from "lucide-react";
 import { Link } from "react-router-dom";
 import StatCard from "@/components/StatCard";
 import CampaignStatusBadge from "@/components/CampaignStatusBadge";
@@ -21,11 +22,16 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
 } from "recharts";
 
-const MESSAGE_PAGE = 50;
+const MESSAGE_PAGE_SIZE = 50;
 
 const CampaignReport = () => {
   const { id } = useParams();
   const { token } = useAuth();
+  const [messagePage, setMessagePage] = useState(1);
+
+  useEffect(() => {
+    setMessagePage(1);
+  }, [id]);
 
   const campaignQuery = useQuery({
     queryKey: platformCampaignQueryKey(id),
@@ -34,18 +40,18 @@ const CampaignReport = () => {
     enabled: !!token && !!id,
   });
 
-  const messagesQuery = useInfiniteQuery({
-    queryKey: platformCampaignMessagesQueryKey(id),
-    initialPageParam: null as string | null,
-    queryFn: async ({ pageParam }) => {
-      const sp = new URLSearchParams({ limit: String(MESSAGE_PAGE) });
-      if (pageParam) sp.set("cursor", pageParam);
+  const messagesQuery = useQuery({
+    queryKey: [...platformCampaignMessagesQueryKey(id), messagePage],
+    queryFn: () => {
+      const sp = new URLSearchParams({
+        page: String(messagePage),
+        pageSize: String(MESSAGE_PAGE_SIZE),
+      });
       return getJson<CampaignMessagesResponse>(
         `/v1/platform/campaigns/${id}/messages?${sp.toString()}`,
         token!,
       );
     },
-    getNextPageParam: (last) => last.nextCursor ?? undefined,
     enabled: !!token && !!id && !!campaignQuery.data?.campaign,
   });
 
@@ -89,8 +95,16 @@ const CampaignReport = () => {
       ]
     : [];
 
-  const flatMessages =
-    messagesQuery.data?.pages.flatMap((p) => p.messages) ?? [];
+  const messagesPayload = messagesQuery.data;
+  const pagedMessages = messagesPayload?.messages ?? [];
+  const messagesTotal = messagesPayload?.total ?? 0;
+  const currentPage = messagesPayload?.page ?? messagePage;
+  const pageSize = messagesPayload?.pageSize ?? MESSAGE_PAGE_SIZE;
+  const totalPages =
+    messagesTotal === 0 ? 1 : Math.ceil(messagesTotal / pageSize);
+  const rangeFrom =
+    messagesTotal === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const rangeTo = Math.min(currentPage * pageSize, messagesTotal);
 
   if (campaignQuery.isPending) {
     return (
@@ -228,20 +242,20 @@ const CampaignReport = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(messagesQuery.isPending || messagesQuery.isFetching) && flatMessages.length === 0 ? (
+              {messagesQuery.isPending && pagedMessages.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center text-muted-foreground text-sm py-8">
                     Cargando mensajes…
                   </TableCell>
                 </TableRow>
-              ) : flatMessages.length === 0 ? (
+              ) : pagedMessages.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center text-muted-foreground text-sm py-8">
                     No hay mensajes en esta campaña todavía.
                   </TableCell>
                 </TableRow>
               ) : (
-                flatMessages.map((m) => (
+                pagedMessages.map((m) => (
                   <TableRow key={m.id}>
                     <TableCell className="font-mono text-xs max-w-[200px] truncate">{m.to}</TableCell>
                     <TableCell className="text-sm">{m.deliveryStatus}</TableCell>
@@ -256,16 +270,34 @@ const CampaignReport = () => {
             </TableBody>
           </Table>
         </div>
-        {messagesQuery.hasNextPage && (
-          <div className="mt-4 flex justify-center">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={messagesQuery.isFetchingNextPage}
-              onClick={() => void messagesQuery.fetchNextPage()}
-            >
-              {messagesQuery.isFetchingNextPage ? "Cargando…" : "Cargar más"}
-            </Button>
+        {messagesTotal > 0 && (
+          <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">
+              Mostrando {rangeFrom.toLocaleString()}–{rangeTo.toLocaleString()} de{" "}
+              {messagesTotal.toLocaleString()} · Página {currentPage} de {totalPages}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={messagesQuery.isFetching || currentPage <= 1}
+                onClick={() => setMessagePage((p) => Math.max(1, p - 1))}
+                aria-label="Página anterior"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Anterior
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={messagesQuery.isFetching || currentPage >= totalPages}
+                onClick={() => setMessagePage((p) => Math.min(totalPages, p + 1))}
+                aria-label="Página siguiente"
+              >
+                Siguiente
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
         )}
       </div>
