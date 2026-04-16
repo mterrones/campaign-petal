@@ -228,22 +228,6 @@ const Contacts = () => {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="stat-card">
-          <p className="text-sm text-muted-foreground">Activos</p>
-          <p className="text-2xl font-bold mt-1">{contactsList.filter((c) => c.status === "active").length.toLocaleString()}</p>
-        </div>
-        <div className="stat-card">
-          <p className="text-sm text-muted-foreground">De Baja</p>
-          <p className="text-2xl font-bold mt-1">{contactsList.filter((c) => c.status === "unsubscribed").length.toLocaleString()}</p>
-        </div>
-        <div className="stat-card">
-          <p className="text-sm text-muted-foreground">Rebotados</p>
-          <p className="text-2xl font-bold mt-1">{contactsList.filter((c) => c.status === "bounced").length.toLocaleString()}</p>
-        </div>
-      </div>
-
       {/* Main layout: sidebar + table */}
       <div className="flex flex-col md:flex-row gap-6">
         {/* Directory sidebar - horizontal scroll on mobile */}
