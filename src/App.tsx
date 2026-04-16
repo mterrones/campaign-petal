@@ -35,8 +35,11 @@ const App = () => (
               <Route element={<AppLayout />}>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/campaigns" element={<Campaigns />} />
-                <Route path="/campaigns/new" element={<EmailEditor />} />
+                <Route path="/campaigns/new" element={<CampaignNew />} />
+                <Route path="/campaigns/editor" element={<EmailEditor />} />
                 <Route path="/templates" element={<Templates />} />
+                <Route path="/templates/new" element={<EmailEditor />} />
+                <Route path="/templates/:id/edit" element={<EmailEditor />} />
                 <Route path="/contacts" element={<Contacts />} />
                 <Route path="/reports" element={<Navigate to="/reports/campaigns" replace />} />
                 <Route path="/reports/campaigns" element={<Reports />} />
