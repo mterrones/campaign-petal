@@ -77,8 +77,23 @@ const EmailEditor = () => {
   const editor = useEmailEditor();
   const { token } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const params = useParams<{ id?: string }>();
+  const [searchParams] = useSearchParams();
+
+  // Mode: template editor vs campaign editor
+  const isTemplateMode = location.pathname.startsWith("/templates/");
+  const editingTemplateId = isTemplateMode ? params.id ?? null : null;
+
   const campaignInitRef = useRef(false);
+  const templateLoadRef = useRef(false);
   const [campaignId, setCampaignId] = useState<string | null>(null);
+  const [savedTemplateId, setSavedTemplateId] = useState<string | null>(editingTemplateId);
+  const [saveTplDialogOpen, setSaveTplDialogOpen] = useState(false);
+  const [tplDescription, setTplDescription] = useState("");
+  const [tplSubmitting, setTplSubmitting] = useState(false);
+
   const isMobile = useIsMobile();
   const [htmlCode, setHtmlCode] = useState("");
   const [htmlDirty, setHtmlDirty] = useState(false);
@@ -95,6 +110,61 @@ const EmailEditor = () => {
   const selectedInnerData = editor.selectedInner
     ? editor.blocks.find(b => b.id === editor.selectedInner!.blockId)?.columns?.[editor.selectedInner!.colIndex]?.find(i => i.id === editor.selectedInner!.innerId) || null
     : null;
+
+  // Preload template (from URL param or template being edited) and skip the selector.
+  useEffect(() => {
+    if (templateLoadRef.current) return;
+    const templateParam = searchParams.get("template");
+
+    if (isTemplateMode) {
+      templateLoadRef.current = true;
+      if (editingTemplateId) {
+        const tpl = getUserTemplate(editingTemplateId);
+        if (tpl) {
+          editor.setPreviewName(tpl.name);
+          editor.setSubject(tpl.subject || tpl.name);
+          setTplDescription(tpl.description || "");
+          editor.loadTemplate(tpl.blocks, tpl.globalStyles);
+        } else {
+          toast.error("Plantilla no encontrada");
+          navigate("/templates", { replace: true });
+        }
+      } else {
+        // /templates/new — start blank without showing the selector
+        editor.setPreviewName("Plantilla sin título");
+        editor.loadTemplate([], {});
+      }
+      return;
+    }
+
+    // Campaign mode — handle ?template=blank|builtin:id|user:id
+    if (templateParam) {
+      templateLoadRef.current = true;
+      if (templateParam === "blank") {
+        editor.loadTemplate([], {});
+      } else if (templateParam.startsWith("user:")) {
+        const id = templateParam.slice(5);
+        const tpl = getUserTemplate(id);
+        if (tpl) {
+          editor.setSubject(tpl.subject || editor.subject);
+          editor.setPreviewName(tpl.name);
+          editor.loadTemplate(tpl.blocks, tpl.globalStyles);
+        } else {
+          toast.error("Plantilla no encontrada");
+          editor.loadTemplate([], {});
+        }
+      } else if (templateParam.startsWith("builtin:")) {
+        const id = templateParam.slice(8);
+        const tpl = emailTemplates.find((t) => t.id === id);
+        if (tpl) {
+          editor.loadTemplate(tpl.blocks, tpl.globalStyles);
+        } else {
+          editor.loadTemplate([], {});
+        }
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!token || editor.showTemplateSelector) return;
