@@ -59,18 +59,18 @@ type SendEmailResponse = {
   errorDetail?: string | null;
 };
 
+type SendBulkResponse = {
+  enqueued: { id: string; to: string }[];
+  failed: { email: string; error: string }[];
+  attempted: number;
+};
+
 type CreateCampaignResponse = {
   campaign: PlatformCampaign;
 };
 
 type PatchCampaignResponse = {
   campaign: PlatformCampaign;
-};
-
-type SendBulkResponse = {
-  succeeded: number;
-  failed: { email: string; error: string }[];
-  attempted: number;
 };
 
 const EmailEditor = () => {
@@ -299,9 +299,13 @@ const EmailEditor = () => {
         },
         { token },
       );
-      if (res.deliveryStatus === "sent") {
+      if (res.deliveryStatus === "enqueued" || res.deliveryStatus === "sent") {
         invalidateCampaignQueries();
-        toast.success("Prueba enviada. Continúa con la agenda.");
+        toast.success(
+          res.deliveryStatus === "enqueued"
+            ? "Correo en cola; el envío se completará en breve. Continúa con la agenda."
+            : "Prueba enviada. Continúa con la agenda.",
+        );
         setSendStep("agenda");
       } else {
         toast.error(res.errorDetail || "No se pudo completar el envío (SMTP)");
@@ -361,12 +365,13 @@ const EmailEditor = () => {
         { token },
       );
       invalidateCampaignQueries();
+      const n = res.enqueued.length;
       if (res.failed.length === 0) {
-        toast.success(`Enviado a ${res.succeeded} destinatario(s)`);
+        toast.success(`${n} correo(s) en cola para envío`);
       } else {
         toast.warning(
-          `Enviados: ${res.succeeded}, fallidos: ${res.failed.length}${
-            res.succeeded === 0 ? ". Revisa SMTP o destinatarios." : ""
+          `En cola: ${n}, fallidos al aceptar: ${res.failed.length}${
+            n === 0 ? ". Revisa cuota o destinatarios." : ""
           }`,
         );
       }
