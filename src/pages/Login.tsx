@@ -109,20 +109,21 @@ const Login = () => {
 
       {/* Right panel — form */}
       <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-12 bg-background">
-        <div className="w-full max-w-sm space-y-8">
+        <div className="w-full max-w-[420px] space-y-8">
           {/* Mobile logo */}
           <div className="lg:hidden flex justify-center">
             <img src={logoImg} alt="EnviaMas" className="h-10 w-auto" />
           </div>
 
-          <div className="space-y-2 text-center lg:text-left">
-            <h2 className="text-2xl font-bold tracking-tight text-foreground">
-              Bienvenido de vuelta
-            </h2>
-            <p className="text-muted-foreground text-sm">
-              Ingresa tus credenciales para acceder a tu cuenta
-            </p>
-          </div>
+          <div className="rounded-2xl border border-border bg-card p-8 shadow-lg shadow-foreground/5 space-y-6">
+            <div className="space-y-2 text-center lg:text-left">
+              <h2 className="text-2xl font-bold tracking-tight text-foreground">
+                Bienvenido de vuelta
+              </h2>
+              <p className="text-muted-foreground text-sm">
+                Ingresa tus credenciales para acceder a tu cuenta
+              </p>
+            </div>
 
           <form onSubmit={onSubmit} className="space-y-5">
             <div className="space-y-1.5">
