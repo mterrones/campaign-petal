@@ -65,16 +65,6 @@ const PaperPlaneAnimation = () => {
           );
         })}
 
-        {/* Small loop flourish at the cross point — visible as a static dashed circle */}
-        <circle
-          cx="300" cy="250" r="12"
-          fill="none"
-          stroke="white"
-          strokeOpacity="0.15"
-          strokeWidth="2"
-          strokeDasharray="3 5"
-          strokeLinecap="round"
-        />
 
         {/* The paper plane — styled like the reference image */}
         <g>
