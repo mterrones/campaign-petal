@@ -1,4 +1,4 @@
-import { getJson, patchJson, mailingApiV1Path } from "@/lib/api";
+import { getJson, patchJson, postJson, mailingApiV1Path } from "@/lib/api";
 
 const base = `${mailingApiV1Path}/platform/admin`;
 
@@ -13,6 +13,15 @@ export const platformAdminUsersQueryKey = ["platform", "admin", "users"] as cons
 
 export async function fetchPlatformAdminUsers(token: string) {
   return getJson<{ users: PlatformAdminUserRow[] }>(`${base}/users`, token);
+}
+
+export async function createPlatformAdminUser(
+  token: string,
+  body: { email: string; password: string; clientId?: string | null },
+) {
+  return postJson<{ user: PlatformAdminUserRow }>(`${base}/users`, body, {
+    token,
+  });
 }
 
 export async function patchPlatformAdminUser(

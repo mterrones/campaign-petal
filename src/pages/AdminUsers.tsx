@@ -30,12 +30,13 @@ import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { ApiError } from "@/lib/api";
 import {
+  createPlatformAdminUser,
   fetchPlatformAdminUsers,
   patchPlatformAdminUser,
   patchPlatformAdminUserPassword,
   platformAdminUsersQueryKey,
 } from "@/lib/platformAdminUsers";
-import { KeyRound, Pencil, Loader2 } from "lucide-react";
+import { KeyRound, Pencil, Loader2, UserPlus } from "lucide-react";
 
 const AdminUsers = () => {
   const { token } = useAuth();
@@ -46,11 +47,60 @@ const AdminUsers = () => {
   const [pwdId, setPwdId] = useState<string | null>(null);
   const [pwdNew, setPwdNew] = useState("");
   const [pwdConfirm, setPwdConfirm] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createEmail, setCreateEmail] = useState("");
+  const [createPassword, setCreatePassword] = useState("");
+  const [createPasswordConfirm, setCreatePasswordConfirm] = useState("");
+  const [createClientId, setCreateClientId] = useState("");
 
   const listQuery = useQuery({
     queryKey: platformAdminUsersQueryKey,
     queryFn: () => fetchPlatformAdminUsers(token!),
     enabled: Boolean(token),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      if (!token) throw new Error("NO_CONTEXT");
+      if (createPassword !== createPasswordConfirm) throw new Error("MISMATCH");
+      if (createPassword.length < 8) throw new Error("SHORT");
+      const clientTrim = createClientId.trim();
+      return createPlatformAdminUser(token, {
+        email: createEmail.trim(),
+        password: createPassword,
+        clientId: clientTrim === "" ? null : clientTrim,
+      });
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: platformAdminUsersQueryKey });
+      setCreateOpen(false);
+      setCreateEmail("");
+      setCreatePassword("");
+      setCreatePasswordConfirm("");
+      setCreateClientId("");
+      toast.success("Usuario creado");
+    },
+    onError: (err: unknown) => {
+      if (err instanceof Error) {
+        if (err.message === "MISMATCH") {
+          toast.error("Las contraseñas no coinciden");
+          return;
+        }
+        if (err.message === "SHORT") {
+          toast.error("La contraseña debe tener al menos 8 caracteres");
+          return;
+        }
+      }
+      if (err instanceof ApiError) {
+        if (err.status === 409) {
+          toast.error("Ese correo ya está registrado");
+          return;
+        }
+        toast.error(err.message);
+        return;
+      }
+      toast.error("No se pudo crear el usuario");
+    },
   });
 
   const patchMutation = useMutation({
@@ -127,16 +177,32 @@ const AdminUsers = () => {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Usuarios de plataforma</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Correo, cliente asociado y restablecimiento de contraseña.
+          Crear usuarios, editar correo o cliente y restablecer contraseña.
         </p>
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Listado</CardTitle>
-          <CardDescription>
-            Todos los usuarios que pueden iniciar sesión en esta aplicación.
-          </CardDescription>
+        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-4 space-y-0">
+          <div className="space-y-1.5">
+            <CardTitle>Listado</CardTitle>
+            <CardDescription>
+              Todos los usuarios que pueden iniciar sesión en esta aplicación.
+            </CardDescription>
+          </div>
+          <Button
+            type="button"
+            className="shrink-0"
+            onClick={() => {
+              setCreateEmail("");
+              setCreatePassword("");
+              setCreatePasswordConfirm("");
+              setCreateClientId("");
+              setCreateOpen(true);
+            }}
+          >
+            <UserPlus className="w-4 h-4 mr-2" />
+            Nuevo usuario
+          </Button>
         </CardHeader>
         <CardContent>
           {listQuery.isLoading ? (
@@ -193,6 +259,81 @@ const AdminUsers = () => {
           )}
         </CardContent>
       </Card>
+
+      <Dialog
+        open={createOpen}
+        onOpenChange={(o) => {
+          if (!o) setCreateOpen(false);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nuevo usuario</DialogTitle>
+            <DialogDescription>
+              Define correo, contraseña y, si aplica, el UUID del cliente en EnviaMas.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="admin-create-email">Correo</Label>
+              <Input
+                id="admin-create-email"
+                type="email"
+                autoComplete="off"
+                value={createEmail}
+                onChange={(e) => setCreateEmail(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="admin-create-pwd">Contraseña</Label>
+              <Input
+                id="admin-create-pwd"
+                type="password"
+                autoComplete="new-password"
+                value={createPassword}
+                onChange={(e) => setCreatePassword(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="admin-create-pwd2">Confirmar contraseña</Label>
+              <Input
+                id="admin-create-pwd2"
+                type="password"
+                autoComplete="new-password"
+                value={createPasswordConfirm}
+                onChange={(e) => setCreatePasswordConfirm(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="admin-create-client">Client ID (UUID)</Label>
+              <Input
+                id="admin-create-client"
+                placeholder="Opcional — vacío = sin cliente"
+                className="font-mono text-sm"
+                autoComplete="off"
+                value={createClientId}
+                onChange={(e) => setCreateClientId(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              disabled={createMutation.isPending}
+              onClick={() => createMutation.mutate()}
+            >
+              {createMutation.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                "Crear usuario"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={editId !== null} onOpenChange={(o) => !o && setEditId(null)}>
         <DialogContent>
