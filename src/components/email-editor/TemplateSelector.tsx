@@ -38,8 +38,8 @@ export function TemplateSelector({ onSelect, onSkip }: TemplateSelectorProps) {
   return (
     <div className="max-w-5xl mx-auto py-8">
       <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold text-foreground">Elegí una plantilla</h2>
-        <p className="text-muted-foreground mt-2">Comenzá con una plantilla prediseñada o desde cero</p>
+        <h2 className="text-2xl font-bold text-foreground">Elige una plantilla</h2>
+        <p className="text-muted-foreground mt-2">Comienza con una plantilla prediseñada o desde cero</p>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {emailTemplates.map((tpl) => (
