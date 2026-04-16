@@ -442,14 +442,14 @@ const EmailEditor = () => {
       {/* Top bar */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0 flex-1">
-          <Link to="/campaigns">
+          <Link to={isTemplateMode ? "/templates" : "/campaigns"}>
             <Button variant="ghost" size="icon" className="shrink-0"><ArrowLeft className="w-4 h-4" /></Button>
           </Link>
           <Input
             value={editor.previewName}
             onChange={e => editor.setPreviewName(e.target.value)}
             className="text-base sm:text-lg font-bold border-none shadow-none p-0 h-auto focus-visible:ring-0 w-full max-w-[200px] sm:max-w-[300px]"
-            placeholder="Nombre de la campaña"
+            placeholder={isTemplateMode ? "Nombre de la plantilla" : "Nombre de la campaña"}
           />
         </div>
         <div className="flex gap-1 items-center shrink-0">
@@ -473,10 +473,20 @@ const EmailEditor = () => {
             <div className="w-px h-6 bg-border mx-1" />
             <Button variant="outline" size="sm" onClick={handleCopyHtml}><Copy className="w-3.5 h-3.5 mr-1.5" />Copiar HTML</Button>
             <Button variant="outline" size="sm" onClick={handleExportHtml}><Download className="w-3.5 h-3.5 mr-1.5" />Exportar</Button>
-            <Button variant="outline" size="sm"><Save className="w-3.5 h-3.5 mr-1.5" />Guardar</Button>
-            <Button size="sm" onClick={openSendDialog}>
-              <Send className="w-3.5 h-3.5 mr-1.5" />Enviar
-            </Button>
+            {isTemplateMode ? (
+              <Button size="sm" onClick={openSaveTemplateDialog}>
+                <Save className="w-3.5 h-3.5 mr-1.5" />Guardar plantilla
+              </Button>
+            ) : (
+              <>
+                <Button variant="outline" size="sm" onClick={openSaveTemplateDialog}>
+                  <Save className="w-3.5 h-3.5 mr-1.5" />Guardar como plantilla
+                </Button>
+                <Button size="sm" onClick={openSendDialog}>
+                  <Send className="w-3.5 h-3.5 mr-1.5" />Enviar
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -486,10 +496,20 @@ const EmailEditor = () => {
         <div className="flex gap-2 overflow-x-auto pb-1">
           <Button variant="outline" size="sm" onClick={handleCopyHtml}><Copy className="w-3.5 h-3.5 mr-1" />Copiar</Button>
           <Button variant="outline" size="sm" onClick={handleExportHtml}><Download className="w-3.5 h-3.5 mr-1" />Exportar</Button>
-          <Button variant="outline" size="sm"><Save className="w-3.5 h-3.5 mr-1" />Guardar</Button>
-          <Button size="sm" onClick={openSendDialog}>
-            <Send className="w-3.5 h-3.5 mr-1" />Enviar
-          </Button>
+          {isTemplateMode ? (
+            <Button size="sm" onClick={openSaveTemplateDialog}>
+              <Save className="w-3.5 h-3.5 mr-1" />Guardar
+            </Button>
+          ) : (
+            <>
+              <Button variant="outline" size="sm" onClick={openSaveTemplateDialog}>
+                <Save className="w-3.5 h-3.5 mr-1" />Plantilla
+              </Button>
+              <Button size="sm" onClick={openSendDialog}>
+                <Send className="w-3.5 h-3.5 mr-1" />Enviar
+              </Button>
+            </>
+          )}
         </div>
       )}
 
