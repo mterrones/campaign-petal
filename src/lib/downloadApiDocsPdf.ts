@@ -1,46 +1,91 @@
-import html2pdf from "html2pdf.js";
+// Generates a printable HTML document in a new window and triggers the
+// native browser "Save as PDF" dialog. This avoids html2canvas/CSS-variable
+// issues that produced blank PDFs with html2pdf.js.
 
-const pdfOptions = {
-  margin: [12, 10, 12, 10] as [number, number, number, number],
-  filename: "enviamas-api-documentacion.pdf",
-  image: { type: "jpeg" as const, quality: 0.92 },
-  html2canvas: { scale: 2, useCORS: true, logging: false },
-  jsPDF: { unit: "mm" as const, format: "a4" as const, orientation: "portrait" as const },
-  pagebreak: { mode: ["css", "legacy"] as const },
-};
+function collectStyles(): string {
+  const parts: string[] = [];
+  for (const sheet of Array.from(document.styleSheets)) {
+    try {
+      const rules = (sheet as CSSStyleSheet).cssRules;
+      if (!rules) continue;
+      for (const rule of Array.from(rules)) {
+        parts.push(rule.cssText);
+      }
+    } catch {
+      // Cross-origin stylesheet — skip.
+    }
+  }
+  return parts.join("\n");
+}
+
+const printCss = `
+  @page { size: A4; margin: 14mm; }
+  html, body { background: #ffffff !important; color: #171717 !important; }
+  body { font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; font-size: 11px; line-height: 1.5; padding: 0; margin: 0; }
+  h1 { font-size: 20px; font-weight: 700; margin: 0 0 4px; }
+  h2 { font-size: 14px; font-weight: 700; margin: 24px 0 10px; padding-bottom: 6px; border-bottom: 1px solid #e5e5e5; }
+  .doc-header { margin-bottom: 18px; }
+  .doc-header p { margin: 0; color: #525252; font-size: 11px; }
+  pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; white-space: pre-wrap; word-break: break-word; }
+  pre { background: #f5f5f5; padding: 10px; border-radius: 6px; border: 1px solid #e5e5e5; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #e5e5e5; padding: 6px 8px; text-align: left; vertical-align: top; font-size: 10px; }
+  th { background: #fafafa; font-weight: 600; }
+  .card, [class*="rounded-"] { box-shadow: none !important; }
+  button { display: none !important; }
+  [data-radix-scroll-area-viewport] { overflow: visible !important; }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+`;
 
 export async function downloadApiDocumentationPdf(
   singleSection: HTMLElement,
   bulkSection: HTMLElement,
 ): Promise<void> {
-  const container = document.createElement("div");
-  container.style.cssText =
-    "position:fixed;left:-12000px;top:0;width:190mm;max-width:720px;background:#ffffff;color:#171717;padding:12px 20px 28px;font-family:system-ui,-apple-system,sans-serif;font-size:11px;line-height:1.45;box-sizing:border-box;";
-
-  const header = document.createElement("div");
-  header.innerHTML =
-    "<h1 style=\"font-size:18px;font-weight:700;margin:0 0 6px;\">EnviaMas — API</h1>" +
-    "<p style=\"margin:0 0 18px;color:#525252;font-size:10px;\">Documentación: envío individual y envío masivo</p>";
-  container.appendChild(header);
-
-  const hSingle = document.createElement("h2");
-  hSingle.textContent = "Envío individual";
-  hSingle.style.cssText =
-    "font-size:13px;font-weight:700;margin:0 0 12px;padding-bottom:8px;border-bottom:1px solid #e5e5e5;";
-  container.appendChild(hSingle);
-  container.appendChild(singleSection.cloneNode(true) as HTMLElement);
-
-  const hBulk = document.createElement("h2");
-  hBulk.textContent = "Envío masivo";
-  hBulk.style.cssText =
-    "font-size:13px;font-weight:700;margin:28px 0 12px;padding-bottom:8px;border-bottom:1px solid #e5e5e5;";
-  container.appendChild(hBulk);
-  container.appendChild(bulkSection.cloneNode(true) as HTMLElement);
-
-  document.body.appendChild(container);
-  try {
-    await html2pdf().set(pdfOptions).from(container).save();
-  } finally {
-    document.body.removeChild(container);
+  const printWindow = window.open("", "_blank", "width=900,height=1000");
+  if (!printWindow) {
+    throw new Error("No se pudo abrir la ventana de impresión. Permite las ventanas emergentes.");
   }
+
+  const styles = collectStyles();
+  const singleHtml = (singleSection.cloneNode(true) as HTMLElement).outerHTML;
+  const bulkHtml = (bulkSection.cloneNode(true) as HTMLElement).outerHTML;
+
+  printWindow.document.open();
+  printWindow.document.write(`<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>EnviaMas — API · Documentación</title>
+<style>${styles}</style>
+<style>${printCss}</style>
+</head>
+<body>
+  <div class="doc-header">
+    <h1>EnviaMas — API</h1>
+    <p>Documentación: envío individual y envío masivo</p>
+  </div>
+  <h2>Envío individual</h2>
+  ${singleHtml}
+  <h2 style="page-break-before: always;">Envío masivo</h2>
+  ${bulkHtml}
+</body>
+</html>`);
+  printWindow.document.close();
+
+  // Wait for fonts and layout, then trigger print.
+  await new Promise<void>((resolve) => {
+    const trigger = () => {
+      try {
+        printWindow.focus();
+        printWindow.print();
+      } finally {
+        resolve();
+      }
+    };
+    if (printWindow.document.readyState === "complete") {
+      setTimeout(trigger, 350);
+    } else {
+      printWindow.addEventListener("load", () => setTimeout(trigger, 350), { once: true });
+    }
+  });
 }
