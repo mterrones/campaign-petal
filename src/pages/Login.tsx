@@ -45,7 +45,7 @@ const PaperPlaneAnimation = () => {
           return (
             <g key={`dash-${i}`} opacity="0">
               <animateMotion dur="8s" repeatCount="indefinite" rotate="auto" begin={`${delay}s`}>
-                <mpath href="#figure8" />
+                <mpath href="#planePath" />
               </animateMotion>
               <animate
                 attributeName="opacity"
@@ -83,7 +83,7 @@ const PaperPlaneAnimation = () => {
             repeatCount="indefinite"
             rotate="auto"
           >
-            <mpath href="#figure8" />
+            <mpath href="#planePath" />
           </animateMotion>
 
           {/* Main body — larger, more detailed paper plane */}
