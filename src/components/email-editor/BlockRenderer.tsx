@@ -129,7 +129,35 @@ function BlockContent({ block, globalStyles }: { block: EmailBlock; globalStyles
         <div style={{ textAlign: "center", padding: "24px 16px", color: c.color || "#9ca3af", fontSize: `${c.fontSize || 12}px`, fontFamily: globalStyles.fontFamily }}>
           <p style={{ margin: "0 0 8px" }}>{c.text}</p>
           {c.address && <p style={{ margin: "0 0 8px" }}>{c.address}</p>}
-          {c.showUnsubscribe === "true" && <a href="#" style={{ color: c.color || "#9ca3af", textDecoration: "underline" }}>{c.unsubscribeText || "Cancelar suscripción"}</a>}
+          {c.showUnsubscribe === "true" && (
+            <a
+              href="#unsubscribe-preview"
+              style={{ color: globalStyles.linkColor, textDecoration: "underline" }}
+              onClick={(e) => e.preventDefault()}
+            >
+              {c.unsubscribeText || "Cancelar suscripción"}
+            </a>
+          )}
+        </div>
+      );
+    case "unsubscribe":
+      return (
+        <div
+          style={{
+            textAlign: (c.align as "left" | "center" | "right") || "center",
+            padding: `${c.paddingTop || 16}px ${c.paddingRight || 16}px ${c.paddingBottom || 24}px ${c.paddingLeft || 16}px`,
+            fontSize: `${c.fontSize || 12}px`,
+            color: c.color || "#9ca3af",
+            fontFamily: globalStyles.fontFamily,
+          }}
+        >
+          <a
+            href="#unsubscribe-preview"
+            style={{ color: globalStyles.linkColor, textDecoration: "underline" }}
+            onClick={(e) => e.preventDefault()}
+          >
+            {c.text || "Darse de baja"}
+          </a>
         </div>
       );
     case "html":

@@ -1,8 +1,8 @@
-import { Type, AlignLeft, Image, Square, Minus, Columns, ArrowUpDown, Share2, FileText, Play, Code, Menu } from "lucide-react";
+import { Type, AlignLeft, Image, Square, Minus, Columns, ArrowUpDown, Share2, FileText, Play, Code, Menu, UserMinus } from "lucide-react";
 import { BlockType, blockTypes, innerBlockTypes, InnerBlockType } from "./types";
 
 const iconMap: Record<string, React.ElementType> = {
-  Type, AlignLeft, Image, Square, Minus, Columns, ArrowUpDown, Share2, FileText, Play, Code, Menu,
+  Type, AlignLeft, Image, Square, Minus, Columns, ArrowUpDown, Share2, FileText, Play, Code, Menu, UserMinus,
 };
 
 interface BlockSidebarProps {

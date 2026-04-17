@@ -15,6 +15,8 @@ const CONTACT_VARIABLES = Array.from({ length: 8 }, (_, i) => ({
   value: `{{VAR${i + 1}}}`,
 }));
 
+const UNSUBSCRIBE_PLACEHOLDER = "{{UNSUBSCRIBE_URL}}";
+
 function VariableButtons({ onInsert }: { onInsert: (variable: string) => void }) {
   return (
     <div>
@@ -32,6 +34,15 @@ function VariableButtons({ onInsert }: { onInsert: (variable: string) => void })
             {v.label}
           </Button>
         ))}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-6 px-2 text-[10px] font-mono"
+          onClick={() => onInsert(UNSUBSCRIBE_PLACEHOLDER)}
+        >
+          Baja URL
+        </Button>
       </div>
     </div>
   );
@@ -392,6 +403,25 @@ function renderBlockProps(block: { type: string; content: Record<string, string>
             <Input type="number" value={c.iconSize || "24"} onChange={e => u("iconSize", e.target.value)} className="mt-1 h-8 text-xs" />
           </div>
           <AlignButtons value={c.align || "center"} onChange={v => u("align", v)} />
+        </div>
+      );
+    case "unsubscribe":
+      return (
+        <div className="space-y-3">
+          <p className="text-[11px] text-muted-foreground leading-snug">
+            En el envío real el enlace se sustituye por una URL firmada para este destinatario. Placeholder:{" "}
+            <code className="bg-muted px-1 rounded text-[10px]">{UNSUBSCRIBE_PLACEHOLDER}</code>
+          </p>
+          <div>
+            <Label className="text-xs">Texto del enlace</Label>
+            <Input value={c.text || ""} onChange={e => u("text", e.target.value)} className="mt-1 h-8 text-xs" />
+          </div>
+          <AlignButtons value={c.align || "center"} onChange={v => u("align", v)} />
+          <ColorInput label="Color texto" value={c.color || "#9ca3af"} onChange={v => u("color", v)} />
+          <div>
+            <Label className="text-xs">Tamaño fuente (px)</Label>
+            <Input type="number" value={c.fontSize || "12"} onChange={e => u("fontSize", e.target.value)} className="mt-1 h-8 text-xs" />
+          </div>
         </div>
       );
     case "footer":

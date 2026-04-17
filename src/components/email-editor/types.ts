@@ -1,4 +1,4 @@
-export type BlockType = "heading" | "text" | "image" | "button" | "divider" | "columns" | "spacer" | "social" | "footer" | "video" | "html" | "logo" | "menu";
+export type BlockType = "heading" | "text" | "image" | "button" | "divider" | "columns" | "spacer" | "social" | "footer" | "video" | "html" | "logo" | "menu" | "unsubscribe";
 export type InnerBlockType = "heading" | "text" | "image" | "button" | "spacer" | "social" | "video";
 
 export interface InnerBlock {
@@ -76,6 +76,16 @@ export const defaultContent: Record<string, Record<string, string>> = {
   html: { code: "<p style='color:#666;'>Tu HTML personalizado aquí</p>" },
   logo: { url: "https://placehold.co/200x60/3b82f6/ffffff?text=LOGO", alt: "Logo", companyName: "Tu Empresa", align: "center", width: "200" },
   menu: { items: JSON.stringify([{ text: "Inicio", url: "#" }, { text: "Productos", url: "#" }, { text: "Contacto", url: "#" }]), align: "center", color: "#3b82f6", fontSize: "14", separator: "|" },
+  unsubscribe: {
+    text: "Darse de baja",
+    align: "center",
+    color: "#9ca3af",
+    fontSize: "12",
+    paddingTop: "16",
+    paddingBottom: "24",
+    paddingLeft: "16",
+    paddingRight: "16",
+  },
 };
 
 export const blockTypes: { type: BlockType; label: string; icon: string }[] = [
@@ -92,6 +102,7 @@ export const blockTypes: { type: BlockType; label: string; icon: string }[] = [
   { type: "html", label: "HTML", icon: "Code" },
   { type: "logo", label: "Logo", icon: "Image" },
   { type: "menu", label: "Menú", icon: "Menu" },
+  { type: "unsubscribe", label: "Baja", icon: "UserMinus" },
 ];
 
 export const innerBlockTypes: { type: InnerBlockType; label: string; icon: string }[] = [

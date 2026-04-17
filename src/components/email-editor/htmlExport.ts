@@ -1,5 +1,7 @@
 import { EmailBlock, InnerBlock, GlobalEmailStyles, COLUMN_LAYOUTS, SOCIAL_NETWORKS } from "./types";
 
+const UNSUBSCRIBE_URL_PLACEHOLDER = "{{UNSUBSCRIBE_URL}}";
+
 function wrap(content: string, pad: string, align?: string): string {
   const alignAttr =
     align === "left" || align === "center" || align === "right" ? ` align="${align}"` : "";
@@ -189,8 +191,17 @@ function renderBlockHtml(block: EmailBlock, gs: GlobalEmailStyles): string {
       return `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"><tr><td align="center" style="padding:24px 16px;color:${c.color || "#9ca3af"};font-size:${c.fontSize || "12"}px;font-family:${ff};mso-line-height-rule:exactly;">
         <p style="margin:0 0 8px;">${c.text}</p>
         ${c.address ? `<p style="margin:0 0 8px;">${c.address}</p>` : ""}
-        ${c.showUnsubscribe === "true" ? `<a href="#" style="color:${gs.linkColor};text-decoration:underline;">${c.unsubscribeText || "Cancelar suscripción"}</a>` : ""}
+        ${c.showUnsubscribe === "true" ? `<a href="${UNSUBSCRIBE_URL_PLACEHOLDER}" style="color:${gs.linkColor};text-decoration:underline;">${c.unsubscribeText || "Cancelar suscripción"}</a>` : ""}
       </td></tr></table>`;
+
+    case "unsubscribe": {
+      const align = c.align || "center";
+      return wrap(
+        `<p style="margin:0;font-size:${c.fontSize || "12"}px;color:${c.color || "#9ca3af"};font-family:${ff};mso-line-height-rule:exactly;"><a href="${UNSUBSCRIBE_URL_PLACEHOLDER}" style="color:${gs.linkColor};text-decoration:underline;">${c.text || "Darse de baja"}</a></p>`,
+        p,
+        align,
+      );
+    }
 
     case "html":
       return c.code || "";

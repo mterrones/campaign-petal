@@ -58,10 +58,12 @@ type SendEmailResponse = {
   id: string;
   deliveryStatus: string;
   errorDetail?: string | null;
+  errorCode?: string | null;
 };
 
 type SendBulkResponse = {
   enqueued: { id: string; to: string }[];
+  blacklisted?: { id: string; to: string }[];
   failed: { email: string; error: string }[];
   attempted: number;
 };
@@ -323,7 +325,13 @@ const EmailEditor = () => {
         },
         { token },
       );
-      if (res.deliveryStatus === "enqueued" || res.deliveryStatus === "sent") {
+      if (res.deliveryStatus === "blacklisted") {
+        invalidateCampaignQueries();
+        toast.warning(
+          "Esta dirección está en lista de exclusión; no se enviará el correo de prueba.",
+        );
+        setSendStep("agenda");
+      } else if (res.deliveryStatus === "enqueued" || res.deliveryStatus === "sent") {
         invalidateCampaignQueries();
         toast.success(
           res.deliveryStatus === "enqueued"
@@ -399,14 +407,16 @@ const EmailEditor = () => {
       void queryClient.invalidateQueries({ queryKey: platformContactDirectoriesQueryKey });
       void queryClient.invalidateQueries({ queryKey: ["platform", "contacts"] });
       const n = res.enqueued.length;
-      if (res.failed.length === 0) {
+      const nb = res.blacklisted?.length ?? 0;
+      if (res.failed.length === 0 && nb === 0) {
         toast.success(`${n} correo(s) en cola para envío`);
       } else {
-        toast.warning(
-          `En cola: ${n}, fallidos al aceptar: ${res.failed.length}${
-            n === 0 ? ". Revisa cuota o destinatarios." : ""
-          }`,
-        );
+        const parts = [
+          `${n} en cola`,
+          nb > 0 ? `${nb} en lista de exclusión (no enviados)` : null,
+          res.failed.length > 0 ? `${res.failed.length} rechazados` : null,
+        ].filter(Boolean);
+        toast.warning(parts.join(" · "));
       }
       setSendDialogOpen(false);
       setSendStep("test");

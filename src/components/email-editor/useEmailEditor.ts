@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { EmailBlock, BlockType, InnerBlockType, InnerBlock, GlobalEmailStyles, DragState, defaultContent, defaultGlobalStyles, COLUMN_LAYOUTS } from "./types";
+import { EmailBlock, BlockType, InnerBlockType, InnerBlock, GlobalEmailStyles, DragState, defaultContent, defaultGlobalStyles, COLUMN_LAYOUTS, innerBlockTypes } from "./types";
 
 const MAX_HISTORY = 50;
 
@@ -247,7 +247,11 @@ export function useEmailEditor(initialBlocks: EmailBlock[] = []) {
     e.preventDefault();
     e.stopPropagation();
     const isInnerDrag = !!dragState.draggedInner;
-    const isNewType = dragState.draggedNewType && dragState.draggedNewType !== "columns" && dragState.draggedNewType !== "divider";
+    const isNewType =
+      !!dragState.draggedNewType &&
+      dragState.draggedNewType !== "columns" &&
+      dragState.draggedNewType !== "divider" &&
+      innerBlockTypes.some((ib) => ib.type === dragState.draggedNewType);
     if (!isInnerDrag && !isNewType) return;
     e.dataTransfer.dropEffect = isInnerDrag ? "move" : "copy";
     const block = blocks.find(b => b.id === blockId);
@@ -286,7 +290,12 @@ export function useEmailEditor(initialBlocks: EmailBlock[] = []) {
         tgtCol.splice(adj, 0, moved);
         return newBlocks;
       });
-    } else if (dragState.draggedNewType && dragState.draggedNewType !== "columns" && dragState.draggedNewType !== "divider") {
+    } else if (
+      dragState.draggedNewType &&
+      dragState.draggedNewType !== "columns" &&
+      dragState.draggedNewType !== "divider" &&
+      innerBlockTypes.some((ib) => ib.type === dragState.draggedNewType)
+    ) {
       addInnerBlock(blockId, colIndex, dragState.draggedNewType as InnerBlockType, targetIdx);
     }
     resetDragState();
