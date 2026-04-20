@@ -1,8 +1,19 @@
 import { InnerBlock, EmailBlock, GlobalEmailStyles, COLUMN_LAYOUTS, SOCIAL_NETWORKS } from "./types";
 import { GripVertical, Trash2, Copy, Plus } from "lucide-react";
+import { toast } from "sonner";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { innerBlockTypes } from "./types";
 import { getInnerBlockIcon } from "./BlockSidebar";
+
+function handleUnsubscribePreviewClick(e: React.MouseEvent<HTMLAnchorElement>) {
+  e.preventDefault();
+  e.stopPropagation();
+  toast({
+    title: "Vista previa",
+    description:
+      "En el correo enviado, este enlace llevará al destinatario a la página para darse de baja.",
+  });
+}
 
 interface BlockRendererProps {
   block: EmailBlock;
@@ -131,9 +142,11 @@ function BlockContent({ block, globalStyles }: { block: EmailBlock; globalStyles
           {c.address && <p style={{ margin: "0 0 8px" }}>{c.address}</p>}
           {c.showUnsubscribe === "true" && (
             <a
-              href="#unsubscribe-preview"
-              style={{ color: globalStyles.linkColor, textDecoration: "underline" }}
-              onClick={(e) => e.preventDefault()}
+              href="#"
+              role="button"
+              title="En el correo enviado será el enlace real de baja"
+              style={{ color: globalStyles.linkColor, textDecoration: "underline", cursor: "pointer" }}
+              onClick={handleUnsubscribePreviewClick}
             >
               {c.unsubscribeText || "Cancelar suscripción"}
             </a>
@@ -152,9 +165,11 @@ function BlockContent({ block, globalStyles }: { block: EmailBlock; globalStyles
           }}
         >
           <a
-            href="#unsubscribe-preview"
-            style={{ color: globalStyles.linkColor, textDecoration: "underline" }}
-            onClick={(e) => e.preventDefault()}
+            href="#"
+            role="button"
+            title="En el correo enviado será el enlace real de baja"
+            style={{ color: globalStyles.linkColor, textDecoration: "underline", cursor: "pointer" }}
+            onClick={handleUnsubscribePreviewClick}
           >
             {c.text || "Darse de baja"}
           </a>

@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Search, Upload, UserPlus, MoreHorizontal, FolderPlus, Folder,
   Trash2, ArrowRightLeft, CheckSquare, X, Pencil, Users, FileSpreadsheet,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, Ban,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +29,7 @@ import { useAuth } from "@/context/AuthContext";
 import { ApiError } from "@/lib/api";
 import type { PlatformContact } from "@/lib/platformContacts";
 import {
+  addEmailSuppression,
   bulkDeleteContacts,
   bulkMoveContacts,
   createContactDirectory,
@@ -38,12 +39,16 @@ import {
   deletePlatformContact,
   fetchContactDirectories,
   fetchContactsPage,
+  fetchEmailSuppressions,
   platformContactDirectoriesQueryKey,
+  platformEmailSuppressionsQueryKey,
+  removeEmailSuppression,
   updateContactDirectory,
   updatePlatformContact,
 } from "@/lib/platformContacts";
 
 const CONTACTS_PAGE_SIZE = 50;
+const BLACKLIST_VIRTUAL_ID = "__blacklist__";
 
 const statusMap: Record<string, { label: string; className: string }> = {
   active: { label: "Activo", className: "bg-success/10 text-success border-success/20" },
@@ -83,6 +88,8 @@ const Contacts = () => {
 
   const [moveDialogOpen, setMoveDialogOpen] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [suppressionAddOpen, setSuppressionAddOpen] = useState(false);
+  const [suppressionAddEmail, setSuppressionAddEmail] = useState("");
 
   const [addMode, setAddMode] = useState<"choose" | "manual" | "excel" | null>(null);
   const [newContact, setNewContact] = useState({ name: "", lastName: "", email: "", tags: "" });
@@ -106,6 +113,12 @@ const Contacts = () => {
 
   const apiDirs = dirsQuery.data?.directories ?? [];
 
+  const suppressionsStatsQuery = useQuery({
+    queryKey: [...platformEmailSuppressionsQueryKey, "stats"],
+    queryFn: () => fetchEmailSuppressions(token!, { page: 1, limit: 1 }),
+    enabled: !!token,
+  });
+
   const contactsQuery = useQuery({
     queryKey: ["platform", "contacts", "list", activeDir, debouncedQ, listPage],
     queryFn: () =>
@@ -115,12 +128,26 @@ const Contacts = () => {
         page: listPage,
         limit: CONTACTS_PAGE_SIZE,
       }),
-    enabled: !!token,
+    enabled: !!token && activeDir !== BLACKLIST_VIRTUAL_ID,
+  });
+
+  const suppressionsListQuery = useQuery({
+    queryKey: [...platformEmailSuppressionsQueryKey, "list", listPage],
+    queryFn: () =>
+      fetchEmailSuppressions(token!, {
+        page: listPage,
+        limit: CONTACTS_PAGE_SIZE,
+      }),
+    enabled: !!token && activeDir === BLACKLIST_VIRTUAL_ID,
   });
 
   const contactsList = contactsQuery.data?.contacts ?? [];
   const totalContacts = contactsQuery.data?.total ?? 0;
   const totalPages = contactsQuery.data?.totalPages ?? 0;
+
+  const suppressionsList = suppressionsListQuery.data?.items ?? [];
+  const totalSuppressions = suppressionsListQuery.data?.total ?? 0;
+  const suppressionsTotalPages = suppressionsListQuery.data?.totalPages ?? 0;
 
   const sidebarDirs: SidebarDir[] = useMemo(() => {
     const allCount = apiDirs.reduce((s, d) => s + d.contactCount, 0);
@@ -137,8 +164,14 @@ const Contacts = () => {
       isDefault: d.isDefault,
       contactCount: d.contactCount,
     }));
-    return [todos, ...rest];
-  }, [apiDirs]);
+    const blacklistDir: SidebarDir = {
+      id: BLACKLIST_VIRTUAL_ID,
+      name: "Lista negra",
+      color: "hsl(0 62% 42%)",
+      contactCount: suppressionsStatsQuery.data?.total ?? 0,
+    };
+    return [todos, blacklistDir, ...rest];
+  }, [apiDirs, suppressionsStatsQuery.data?.total]);
 
   const defaultDirectoryId = useMemo(
     () => apiDirs.find((d) => d.isDefault)?.id ?? apiDirs[0]?.id,
@@ -153,6 +186,10 @@ const Contacts = () => {
   const invalidateContacts = () => {
     void queryClient.invalidateQueries({ queryKey: platformContactDirectoriesQueryKey });
     void queryClient.invalidateQueries({ queryKey: ["platform", "contacts"] });
+  };
+
+  const invalidateSuppressions = () => {
+    void queryClient.invalidateQueries({ queryKey: platformEmailSuppressionsQueryKey });
   };
 
   const createDirMutation = useMutation({
@@ -298,6 +335,38 @@ const Contacts = () => {
       toast({ title: "Contacto eliminado" });
     },
     onError: () => toast({ title: "No se pudo eliminar", variant: "destructive" }),
+  });
+
+  const addSuppressionMutation = useMutation({
+    mutationFn: () => addEmailSuppression(token!, { email: suppressionAddEmail.trim() }),
+    onSuccess: () => {
+      setSuppressionAddEmail("");
+      setSuppressionAddOpen(false);
+      invalidateSuppressions();
+      toast({ title: "Email añadido a la lista negra" });
+    },
+    onError: () => {
+      toast({
+        title: "No se pudo añadir",
+        description: "Comprueba que el email sea válido.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const removeSuppressionMutation = useMutation({
+    mutationFn: (email: string) => removeEmailSuppression(token!, email),
+    onSuccess: () => {
+      invalidateSuppressions();
+      toast({ title: "Eliminado de la lista negra" });
+    },
+    onError: (e) => {
+      if (e instanceof ApiError && e.status === 404) {
+        toast({ title: "No estaba en la lista", variant: "destructive" });
+      } else {
+        toast({ title: "No se pudo quitar", variant: "destructive" });
+      }
+    },
   });
 
   const moveOneMutation = useMutation({
@@ -473,10 +542,14 @@ const Contacts = () => {
                   setSelectedIds(new Set());
                 }}
               >
-                <Folder className="w-4 h-4 shrink-0" style={{ color: dir.color }} />
+                {dir.id === BLACKLIST_VIRTUAL_ID ? (
+                  <Ban className="w-4 h-4 shrink-0" style={{ color: dir.color }} />
+                ) : (
+                  <Folder className="w-4 h-4 shrink-0" style={{ color: dir.color }} />
+                )}
                 <span className="flex-1 truncate">{dir.name}</span>
                 <span className="text-xs text-muted-foreground">{dir.contactCount}</span>
-                {dir.id !== "all" && (
+                {dir.id !== "all" && dir.id !== BLACKLIST_VIRTUAL_ID && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
@@ -517,6 +590,135 @@ const Contacts = () => {
         </div>
 
         <div className="flex-1 space-y-4 min-w-0">
+          {activeDir === BLACKLIST_VIRTUAL_ID ? (
+            <>
+              <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-end">
+                <Button onClick={() => setSuppressionAddOpen(true)} className="w-full sm:w-auto">
+                  <UserPlus className="w-4 h-4 mr-2" /> Añadir email
+                </Button>
+              </div>
+
+              {suppressionsListQuery.isPending && (
+                <p className="text-sm text-muted-foreground py-8">Cargando lista negra…</p>
+              )}
+
+              {!suppressionsListQuery.isPending && suppressionsListQuery.isError && (
+                <p className="text-destructive text-sm py-8">No se pudo cargar la lista negra.</p>
+              )}
+
+              {!suppressionsListQuery.isPending && !suppressionsListQuery.isError && (
+                <>
+                  <div className="md:hidden space-y-3">
+                    {suppressionsList.length === 0 && (
+                      <div className="text-center py-12 text-muted-foreground">
+                        <Ban className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                        <p>No hay direcciones bloqueadas</p>
+                      </div>
+                    )}
+                    {suppressionsList.map((row) => (
+                      <div
+                        key={row.email}
+                        className="bg-card rounded-xl border shadow-sm p-4 flex items-center justify-between gap-3"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm truncate">{row.email}</p>
+                          <p className="text-xs text-muted-foreground">{formatCreated(row.createdAt)}</p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="shrink-0 text-destructive border-destructive/30"
+                          onClick={() => removeSuppressionMutation.mutate(row.email)}
+                          disabled={removeSuppressionMutation.isPending}
+                        >
+                          Quitar
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="hidden md:block bg-card rounded-xl border shadow-sm overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Email</TableHead>
+                          <TableHead>Fecha</TableHead>
+                          <TableHead className="w-36 text-right">Acciones</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {suppressionsList.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={3} className="text-center py-12 text-muted-foreground">
+                              <Ban className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                              <p>No hay direcciones bloqueadas</p>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                        {suppressionsList.map((row) => (
+                          <TableRow key={row.email}>
+                            <TableCell className="font-medium">{row.email}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {formatCreated(row.createdAt)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-destructive border-destructive/30"
+                                onClick={() => removeSuppressionMutation.mutate(row.email)}
+                                disabled={removeSuppressionMutation.isPending}
+                              >
+                                Quitar
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {suppressionsTotalPages > 1 && (
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                      <p className="text-sm text-muted-foreground">
+                        {(listPage - 1) * CONTACTS_PAGE_SIZE + 1}–
+                        {Math.min(listPage * CONTACTS_PAGE_SIZE, totalSuppressions)} de{" "}
+                        {totalSuppressions.toLocaleString()}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={listPage <= 1 || suppressionsListQuery.isFetching}
+                          onClick={() => setListPage((p) => Math.max(1, p - 1))}
+                        >
+                          <ChevronLeft className="w-4 h-4 mr-1" />
+                          Anterior
+                        </Button>
+                        <span className="text-sm text-muted-foreground tabular-nums px-2">
+                          Página {listPage} de {suppressionsTotalPages}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={
+                            listPage >= suppressionsTotalPages || suppressionsListQuery.isFetching
+                          }
+                          onClick={() => setListPage((p) => Math.min(suppressionsTotalPages, p + 1))}
+                        >
+                          Siguiente
+                          <ChevronRight className="w-4 h-4 ml-1" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          ) : (
+            <>
           <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -613,7 +815,12 @@ const Contacts = () => {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           {sidebarDirs
-                            .filter((d) => d.id !== "all" && d.id !== c.directoryId)
+                            .filter(
+                              (d) =>
+                                d.id !== "all" &&
+                                d.id !== BLACKLIST_VIRTUAL_ID &&
+                                d.id !== c.directoryId,
+                            )
                             .map((d) => (
                               <DropdownMenuItem
                                 key={d.id}
@@ -699,7 +906,12 @@ const Contacts = () => {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               {sidebarDirs
-                                .filter((d) => d.id !== "all" && d.id !== c.directoryId)
+                                .filter(
+                                  (d) =>
+                                    d.id !== "all" &&
+                                    d.id !== BLACKLIST_VIRTUAL_ID &&
+                                    d.id !== c.directoryId,
+                                )
                                 .map((d) => (
                                   <DropdownMenuItem
                                     key={d.id}
@@ -755,6 +967,8 @@ const Contacts = () => {
                   </div>
                 </div>
               )}
+            </>
+          )}
             </>
           )}
         </div>
@@ -846,7 +1060,7 @@ const Contacts = () => {
           <p className="text-sm text-muted-foreground mb-4">Selecciona el directorio de destino:</p>
           <div className="space-y-1">
             {sidebarDirs
-              .filter((d) => d.id !== "all")
+              .filter((d) => d.id !== "all" && d.id !== BLACKLIST_VIRTUAL_ID)
               .map((d) => (
                 <Button
                   key={d.id}
@@ -861,6 +1075,50 @@ const Contacts = () => {
                 </Button>
               ))}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={suppressionAddOpen}
+        onOpenChange={(o) => {
+          setSuppressionAddOpen(o);
+          if (!o) setSuppressionAddEmail("");
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Añadir a lista negra</DialogTitle>
+            <DialogDescription>
+              No se enviarán correos a esta dirección desde la app ni por API (si tu cuenta está vinculada).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <Label htmlFor="suppression-email">Email</Label>
+            <Input
+              id="suppression-email"
+              className="mt-1.5"
+              type="email"
+              value={suppressionAddEmail}
+              onChange={(e) => setSuppressionAddEmail(e.target.value)}
+              placeholder="correo@ejemplo.com"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && suppressionAddEmail.trim()) {
+                  addSuppressionMutation.mutate();
+                }
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Cancelar</Button>
+            </DialogClose>
+            <Button
+              onClick={() => addSuppressionMutation.mutate()}
+              disabled={!suppressionAddEmail.trim() || addSuppressionMutation.isPending}
+            >
+              Añadir
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

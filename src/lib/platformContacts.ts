@@ -39,6 +39,41 @@ export const platformContactsListQueryKey = (
 
 export const platformContactsStatsQueryKey = ["platform", "contacts", "stats"] as const;
 
+export const platformEmailSuppressionsQueryKey = ["platform", "email-suppressions"] as const;
+
+export type PlatformEmailSuppressionItem = {
+  email: string;
+  createdAt: string;
+};
+
+export function fetchEmailSuppressions(
+  token: string,
+  options: { page?: number; limit?: number },
+): Promise<{
+  items: PlatformEmailSuppressionItem[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}> {
+  const sp = new URLSearchParams();
+  if (options.page) sp.set("page", String(options.page));
+  if (options.limit) sp.set("limit", String(options.limit));
+  const q = sp.toString();
+  return getJson(`${base}/email-suppressions${q ? `?${q}` : ""}`, token);
+}
+
+export function addEmailSuppression(
+  token: string,
+  body: { email: string },
+): Promise<{ ok: boolean }> {
+  return postJson(`${base}/email-suppressions`, body, { token });
+}
+
+export function removeEmailSuppression(token: string, email: string): Promise<void> {
+  return deleteJson(`${base}/email-suppressions/${encodeURIComponent(email)}`, token);
+}
+
 export function fetchContactDirectories(token: string): Promise<{
   directories: PlatformContactDirectory[];
 }> {
