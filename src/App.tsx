@@ -21,6 +21,7 @@ import Templates from "./pages/Templates";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import AdminUsers from "./pages/AdminUsers";
+import ClientManagement from "./pages/ClientManagement";
 
 const queryClient = new QueryClient();
 
@@ -51,6 +52,7 @@ const App = () => (
                 <Route path="/settings" element={<DomainSettings />} />
                 <Route path="/api-keys" element={<ApiKeys />} />
                 <Route path="/admin/users" element={<AdminUsers />} />
+                <Route path="/admin/clients" element={<ClientManagement />} />
                 <Route path="*" element={<NotFound />} />
                 </Route>
               </Route>

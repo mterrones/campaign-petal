@@ -10,6 +10,12 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { ApiError, mailingApiV1Path, patchJson, postJson } from "@/lib/api";
 import {
+  buildFromHeader,
+  resolveInitialSendDomain,
+  validateDisplayName,
+  validateLocalPart,
+} from "@/lib/sendingFrom";
+import {
   platformCampaignMessagesQueryKey,
   platformCampaignQueryKey,
   platformCampaignsQueryKey,
@@ -40,6 +46,7 @@ import { PropertiesPanel } from "@/components/email-editor/PropertiesPanel";
 import { GlobalStyles } from "@/components/email-editor/GlobalStyles";
 import { TemplateSelector } from "@/components/email-editor/TemplateSelector";
 import { exportHtml } from "@/components/email-editor/htmlExport";
+import { SendDialogSenderFields } from "@/components/SendDialogSenderFields";
 import {
   fetchActiveEmailsForAgenda,
   fetchContactDirectories,
@@ -78,7 +85,7 @@ type PatchCampaignResponse = {
 
 const EmailEditor = () => {
   const editor = useEmailEditor();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
@@ -108,6 +115,9 @@ const EmailEditor = () => {
   const [sendSubject, setSendSubject] = useState("");
   const [selectedAgendaId, setSelectedAgendaId] = useState("all");
   const [sendSubmitting, setSendSubmitting] = useState(false);
+  const [sendDomain, setSendDomain] = useState("");
+  const [sendLocalPart, setSendLocalPart] = useState("");
+  const [sendDisplayName, setSendDisplayName] = useState("");
 
   const directoriesQuery = useQuery({
     queryKey: platformContactDirectoriesQueryKey,
@@ -281,13 +291,47 @@ const EmailEditor = () => {
     return exportHtml(editor.blocks, editor.globalStyles, subjectLine);
   };
 
+  const sendingDomains = user?.sendingDomains ?? [];
+
   const openSendDialog = () => {
+    if (sendingDomains.length === 0) {
+      toast.error(
+        "Tu cuenta no tiene dominios de envío. Revisa Configuración → Dominio o contacta al administrador.",
+      );
+      return;
+    }
+    setSendDomain(resolveInitialSendDomain(sendingDomains));
+    setSendLocalPart("");
+    setSendDisplayName("");
     setSendStep("test");
     setSendSubject(editor.subject.trim());
     setSendTo("");
     setSelectedAgendaId("all");
     setSendDialogOpen(true);
   };
+
+  const buildSendFromHeader = (): string | null => {
+    const localError = validateLocalPart(sendLocalPart);
+    if (localError) {
+      toast.error(localError);
+      return null;
+    }
+    const nameError = validateDisplayName(sendDisplayName);
+    if (nameError) {
+      toast.error(nameError);
+      return null;
+    }
+    if (!sendDomain) {
+      toast.error("Selecciona un dominio de envío");
+      return null;
+    }
+    return buildFromHeader(sendDisplayName, sendLocalPart, sendDomain);
+  };
+
+  const sendFromPreview =
+    sendDomain && sendLocalPart.trim()
+      ? buildFromHeader(sendDisplayName, sendLocalPart, sendDomain)
+      : null;
 
   const invalidateCampaignQueries = () => {
     void queryClient.invalidateQueries({ queryKey: platformCampaignsQueryKey });
@@ -313,6 +357,8 @@ const EmailEditor = () => {
       toast.error("No hay contenido para enviar");
       return;
     }
+    const from = buildSendFromHeader();
+    if (!from) return;
     setSendSubmitting(true);
     try {
       const res = await postJson<SendEmailResponse>(
@@ -321,6 +367,7 @@ const EmailEditor = () => {
           to,
           subject,
           html,
+          from,
           ...(campaignId ? { campaignId } : {}),
         },
         { token },
@@ -353,6 +400,15 @@ const EmailEditor = () => {
               ? (body as SendEmailResponse).errorDetail
               : null;
           toast.error(detail || "Error al entregar el correo");
+        } else if (e.status === 400) {
+          const body = e.body as { error?: string };
+          const msg =
+            typeof body?.error === "string" ? body.error : e.message;
+          toast.error(
+            msg.includes("domain") || msg.includes("Sending domain")
+              ? "El remitente no está permitido para tu cuenta. Usa un dominio registrado."
+              : msg,
+          );
         } else {
           toast.error("No se pudo enviar la prueba");
         }
@@ -391,6 +447,8 @@ const EmailEditor = () => {
       toast.error("No hay contenido para enviar");
       return;
     }
+    const from = buildSendFromHeader();
+    if (!from) return;
     setSendSubmitting(true);
     try {
       const res = await postJson<SendBulkResponse>(
@@ -399,6 +457,7 @@ const EmailEditor = () => {
           to: recipients,
           subject,
           html,
+          from,
           ...(campaignId ? { campaignId } : {}),
         },
         { token },
@@ -424,6 +483,15 @@ const EmailEditor = () => {
       if (e instanceof ApiError) {
         if (e.status === 429) {
           toast.error("Límite de envíos masivos. Espera unos minutos.");
+        } else if (e.status === 400) {
+          const body = e.body as { error?: string };
+          const msg =
+            typeof body?.error === "string" ? body.error : e.message;
+          toast.error(
+            msg.includes("domain") || msg.includes("Sending domain")
+              ? "El remitente no está permitido para tu cuenta. Usa un dominio registrado."
+              : msg,
+          );
         } else {
           toast.error("No se pudo completar el envío masivo");
         }
@@ -910,6 +978,16 @@ const EmailEditor = () => {
                     disabled={sendSubmitting}
                   />
                 </div>
+                <SendDialogSenderFields
+                  sendingDomains={sendingDomains}
+                  sendDomain={sendDomain}
+                  sendLocalPart={sendLocalPart}
+                  sendDisplayName={sendDisplayName}
+                  disabled={sendSubmitting}
+                  onDomainChange={setSendDomain}
+                  onLocalPartChange={setSendLocalPart}
+                  onDisplayNameChange={setSendDisplayName}
+                />
                 <div className="space-y-2">
                   <Label htmlFor="send-subject">Asunto</Label>
                   <Input
@@ -936,10 +1014,16 @@ const EmailEditor = () => {
               <DialogHeader>
                 <DialogTitle>Paso 2: agenda de contactos</DialogTitle>
                 <DialogDescription>
-                  Elige la lista de destinatarios (solo contactos activos). Se usará el mismo asunto y HTML que en la prueba.
+                  Elige la lista de destinatarios (solo contactos activos). Se usará el mismo remitente, asunto y HTML que en la prueba.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-2">
+                {sendFromPreview && (
+                  <p className="text-xs text-muted-foreground rounded-md border bg-muted/40 px-3 py-2">
+                    Remitente:{" "}
+                    <span className="font-medium text-foreground break-all">{sendFromPreview}</span>
+                  </p>
+                )}
                 <div className="space-y-2">
                   <Label htmlFor="agenda-select">Agenda</Label>
                   <Select value={selectedAgendaId} onValueChange={setSelectedAgendaId} disabled={sendSubmitting}>

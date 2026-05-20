@@ -13,6 +13,7 @@ import {
   Globe,
   Activity,
   UserCog,
+  Building2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
@@ -186,12 +187,15 @@ const AppSidebar = () => {
     );
   };
 
-  const adminNavItem: NavItem = {
-    to: "/admin/users",
-    icon: UserCog,
-    label: "Usuarios",
-    exact: true,
-  };
+  const adminNavItems: NavItem[] = [
+    { to: "/admin/users", icon: UserCog, label: "Usuarios", exact: true },
+    {
+      to: "/admin/clients",
+      icon: Building2,
+      label: "Gestión de clientes",
+      exact: true,
+    },
+  ];
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border/40">
@@ -245,7 +249,9 @@ const AppSidebar = () => {
                 </p>
               )}
               <SidebarGroupContent>
-                <SidebarMenu className="space-y-1">{renderItem(adminNavItem)}</SidebarMenu>
+                <SidebarMenu className="space-y-1">
+                  {adminNavItems.map(renderItem)}
+                </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
           </>
@@ -255,6 +261,21 @@ const AppSidebar = () => {
       {/* Footer */}
       <SidebarFooter className="p-3">
         <Separator className="mb-3 bg-border/40" />
+
+        {!collapsed && user && user.sendingDomains.length > 0 && (
+          <div className="px-2 pb-3 text-[11px] leading-snug text-muted-foreground border-b border-border/30 mb-3">
+            <p className="font-semibold uppercase tracking-wide text-foreground/80 mb-1.5">
+              Dominios de envío
+            </p>
+            <ul className="space-y-0.5">
+              {user.sendingDomains.map((d) => (
+                <li key={d} className="font-mono text-[10px] break-all">
+                  {d}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <SidebarMenu>
           <SidebarMenuItem>

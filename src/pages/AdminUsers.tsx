@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +20,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  PlatformClientSelect,
+  clientLabelById,
+} from "@/components/PlatformClientSelect";
+import {
   Table,
   TableBody,
   TableCell,
@@ -36,10 +41,17 @@ import {
   patchPlatformAdminUserPassword,
   platformAdminUsersQueryKey,
 } from "@/lib/platformAdminUsers";
-import { KeyRound, Pencil, Loader2, UserPlus } from "lucide-react";
+import {
+  fetchPlatformAdminClients,
+  platformAdminClientsQueryKey,
+} from "@/lib/platformAdminClients";
+import { isPlatformAdmin, PLATFORM_ADMIN_EMAIL } from "@/lib/platformAdmin";
+import { KeyRound, LogIn, Pencil, Loader2, UserPlus } from "lucide-react";
 
 const AdminUsers = () => {
-  const { token } = useAuth();
+  const navigate = useNavigate();
+  const { token, user, startImpersonation } = useAuth();
+  const canImpersonate = isPlatformAdmin(user);
   const queryClient = useQueryClient();
   const [editId, setEditId] = useState<string | null>(null);
   const [editEmail, setEditEmail] = useState("");
@@ -58,6 +70,14 @@ const AdminUsers = () => {
     queryFn: () => fetchPlatformAdminUsers(token!),
     enabled: Boolean(token),
   });
+
+  const clientsQuery = useQuery({
+    queryKey: platformAdminClientsQueryKey,
+    queryFn: () => fetchPlatformAdminClients(token!),
+    enabled: Boolean(token),
+  });
+
+  const clients = clientsQuery.data?.clients ?? [];
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -96,7 +116,15 @@ const AdminUsers = () => {
           toast.error("Ese correo ya está registrado");
           return;
         }
-        toast.error(err.message);
+        const details =
+          typeof err.body === "object" &&
+          err.body !== null &&
+          "details" in err.body &&
+          typeof (err.body as { details?: { message?: string } }).details?.message ===
+            "string"
+            ? (err.body as { details: { message: string } }).details.message
+            : null;
+        toast.error(details ?? err.message);
         return;
       }
       toast.error("No se pudo crear el usuario");
@@ -127,6 +155,27 @@ const AdminUsers = () => {
         return;
       }
       toast.error("No se pudo guardar");
+    },
+  });
+
+  const impersonateMutation = useMutation({
+    mutationFn: async (targetUserId: string) => {
+      await startImpersonation(targetUserId);
+    },
+    onSuccess: () => {
+      toast.success("Sesión iniciada como el usuario seleccionado");
+      navigate("/", { replace: true });
+    },
+    onError: (err: unknown) => {
+      if (err instanceof ApiError) {
+        toast.error(err.message);
+        return;
+      }
+      if (err instanceof Error && err.message === "ALREADY_IMPERSONATING") {
+        toast.error("Ya estás en una sesión impersonada");
+        return;
+      }
+      toast.error("No se pudo impersonar al usuario");
     },
   });
 
@@ -177,7 +226,7 @@ const AdminUsers = () => {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Usuarios de plataforma</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Crear usuarios, editar correo o cliente y restablecer contraseña.
+          Crear usuarios, editar correo o cliente, restablecer contraseña e iniciar sesión como otro usuario.
         </p>
       </div>
 
@@ -217,18 +266,49 @@ const AdminUsers = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Correo</TableHead>
-                  <TableHead>Client ID</TableHead>
-                  <TableHead className="w-[200px] text-right">Acciones</TableHead>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead className="w-[280px] text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(listQuery.data?.users ?? []).map((u) => (
+                {(listQuery.data?.users ?? []).map((u) => {
+                  const isSelf = user?.id === u.id;
+                  const isAdminAccount =
+                    u.email.trim().toLowerCase() === PLATFORM_ADMIN_EMAIL;
+                  const showImpersonate =
+                    canImpersonate && !isSelf && !isAdminAccount;
+
+                  return (
                   <TableRow key={u.id}>
                     <TableCell className="font-medium">{u.email}</TableCell>
-                    <TableCell className="text-muted-foreground font-mono text-xs">
-                      {u.clientId ?? "—"}
+                    <TableCell className="text-muted-foreground text-sm">
+                      {clientLabelById(clients, u.clientId)}
+                      {u.clientId && (
+                        <span className="block font-mono text-xs opacity-70">
+                          {u.clientId}
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="text-right space-x-2">
+                      {showImpersonate && (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          disabled={impersonateMutation.isPending}
+                          onClick={() => impersonateMutation.mutate(u.id)}
+                        >
+                          {impersonateMutation.isPending &&
+                          impersonateMutation.variables === u.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <>
+                              <LogIn className="w-3.5 h-3.5 mr-1" />
+                              Impersonar
+                            </>
+                          )}
+                        </Button>
+                      )}
                       <Button
                         type="button"
                         variant="outline"
@@ -253,7 +333,8 @@ const AdminUsers = () => {
                       </Button>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           )}
@@ -270,7 +351,7 @@ const AdminUsers = () => {
           <DialogHeader>
             <DialogTitle>Nuevo usuario</DialogTitle>
             <DialogDescription>
-              Define correo, contraseña y, si aplica, el UUID del cliente en EnviaMas.
+              Define correo, contraseña y, si aplica, el cliente de EnviaMas.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -278,7 +359,8 @@ const AdminUsers = () => {
               <Label htmlFor="admin-create-email">Correo</Label>
               <Input
                 id="admin-create-email"
-                type="email"
+                type="text"
+                inputMode="email"
                 autoComplete="off"
                 value={createEmail}
                 onChange={(e) => setCreateEmail(e.target.value)}
@@ -305,14 +387,13 @@ const AdminUsers = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="admin-create-client">Client ID (UUID)</Label>
-              <Input
+              <Label htmlFor="admin-create-client">Cliente</Label>
+              <PlatformClientSelect
                 id="admin-create-client"
-                placeholder="Opcional — vacío = sin cliente"
-                className="font-mono text-sm"
-                autoComplete="off"
                 value={createClientId}
-                onChange={(e) => setCreateClientId(e.target.value)}
+                onChange={setCreateClientId}
+                clients={clients}
+                loading={clientsQuery.isLoading}
               />
             </div>
           </div>
@@ -340,7 +421,7 @@ const AdminUsers = () => {
           <DialogHeader>
             <DialogTitle>Editar usuario</DialogTitle>
             <DialogDescription>
-              Cambia el correo o el UUID del cliente. Deja el cliente vacío para quitar la asociación.
+              Cambia el correo o el cliente asociado. Elige «Sin cliente» para quitar la asociación.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -348,21 +429,21 @@ const AdminUsers = () => {
               <Label htmlFor="admin-edit-email">Correo</Label>
               <Input
                 id="admin-edit-email"
-                type="email"
+                type="text"
+                inputMode="email"
                 autoComplete="off"
                 value={editEmail}
                 onChange={(e) => setEditEmail(e.target.value)}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="admin-edit-client">Client ID (UUID)</Label>
-              <Input
+              <Label htmlFor="admin-edit-client">Cliente</Label>
+              <PlatformClientSelect
                 id="admin-edit-client"
-                placeholder="Vacío = sin cliente"
-                className="font-mono text-sm"
-                autoComplete="off"
                 value={editClientId}
-                onChange={(e) => setEditClientId(e.target.value)}
+                onChange={setEditClientId}
+                clients={clients}
+                loading={clientsQuery.isLoading}
               />
             </div>
           </div>

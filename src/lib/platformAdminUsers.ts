@@ -47,3 +47,23 @@ export async function patchPlatformAdminUserPassword(
     { token },
   );
 }
+
+export type ImpersonatePlatformUserResponse = {
+  token: string;
+  user: {
+    id: string;
+    email: string;
+    clientId: string | null;
+    sendingDomains?: string[];
+    defaultFrom?: string | null;
+    impersonation: { id: string; email: string };
+  };
+};
+
+export async function impersonatePlatformAdminUser(token: string, userId: string) {
+  return postJson<ImpersonatePlatformUserResponse>(
+    `${base}/users/${encodeURIComponent(userId)}/impersonate`,
+    {},
+    { token },
+  );
+}

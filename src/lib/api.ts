@@ -1,4 +1,17 @@
 const TOKEN_STORAGE_KEY = "enviamas_platform_token";
+const IMPERSONATION_BACKUP_KEY = "enviamas_admin_token_backup";
+
+export function getImpersonationBackupToken(): string | null {
+  return sessionStorage.getItem(IMPERSONATION_BACKUP_KEY);
+}
+
+export function setImpersonationBackupToken(token: string | null): void {
+  if (token === null) {
+    sessionStorage.removeItem(IMPERSONATION_BACKUP_KEY);
+  } else {
+    sessionStorage.setItem(IMPERSONATION_BACKUP_KEY, token);
+  }
+}
 
 export const mailingApiV1Path = "/mailling/v1";
 
