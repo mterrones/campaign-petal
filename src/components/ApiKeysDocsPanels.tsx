@@ -96,13 +96,25 @@ export const ApiKeyMessagesDocs = forwardRef<HTMLDivElement, ApiKeyDocsProps>(
                 Body (JSON)
               </Label>
               <p className="text-[11px] text-muted-foreground mt-1">Obligatorio: <code className="bg-muted px-1 rounded">text</code> y/o <code className="bg-muted px-1 rounded">html</code>.</p>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Adjuntos opcionales con{" "}
+                <code className="bg-muted px-1 rounded">attachments</code> (base64): máximo 5
+                archivos y 10MB total decodificado.
+              </p>
               <pre className="bg-muted rounded-lg p-3 mt-2 text-[11px] overflow-x-auto leading-snug">
 {`{
   "to": "destinatario@example.com",
   "subject": "Asunto",
   "html": "<p>…</p>",
   "text": "…",
-  "from": "Nombre <correo@dominio.com>"
+  "from": "Nombre <correo@dominio.com>",
+  "attachments": [
+    {
+      "filename": "reporte.pdf",
+      "contentType": "application/pdf",
+      "contentBase64": "JVBERi0xLjQKJc..."
+    }
+  ]
 }`}
               </pre>
             </div>
@@ -127,6 +139,7 @@ export const ApiKeyMessagesDocs = forwardRef<HTMLDivElement, ApiKeyDocsProps>(
                       ["html", "Cond.", "Al menos uno de html o text"],
                       ["text", "Cond.", "Al menos uno de html o text"],
                       ["from", "No", "Opcional; default servidor"],
+                      ["attachments", "No", "Array base64 (máx 5, total 10MB)"],
                     ].map(([c, r, d]) => (
                       <tr key={c}>
                         <td className="px-3 py-1.5">
@@ -175,6 +188,14 @@ export const ApiKeyMessagesDocs = forwardRef<HTMLDivElement, ApiKeyDocsProps>(
                   </li>
                 ))}
               </ul>
+              <div className="mt-3">
+                <Label className="text-[11px] text-muted-foreground">Ejemplos 400</Label>
+                <pre className="bg-muted rounded-lg p-3 mt-1 text-[11px] overflow-x-auto leading-snug">
+{`{"error":"attachments allows up to 5 files"}
+{"error":"attachments total size exceeds 10485760 bytes"}
+{"error":"attachments[0].contentBase64 is not valid base64"}`}
+                </pre>
+              </div>
             </div>
 
             <Separator />
