@@ -104,6 +104,8 @@ export const ApiKeyMessagesDocs = forwardRef<HTMLDivElement, ApiKeyDocsProps>(
               <pre className="bg-muted rounded-lg p-3 mt-2 text-[11px] overflow-x-auto leading-snug">
 {`{
   "to": "destinatario@example.com",
+  "cc": ["copia@example.com"],
+  "bcc": ["oculto@example.com"],
   "subject": "Asunto",
   "html": "<p>…</p>",
   "text": "…",
@@ -135,6 +137,8 @@ export const ApiKeyMessagesDocs = forwardRef<HTMLDivElement, ApiKeyDocsProps>(
                   <tbody className="divide-y">
                     {[
                       ["to", "Sí", "Email"],
+                      ["cc", "No", "Array de emails (máx 50)"],
+                      ["bcc", "No", "Array de emails (máx 50); no aparece en cabeceras"],
                       ["subject", "Sí", "—"],
                       ["html", "Cond.", "Al menos uno de html o text"],
                       ["text", "Cond.", "Al menos uno de html o text"],

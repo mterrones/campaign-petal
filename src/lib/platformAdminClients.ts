@@ -15,10 +15,18 @@ export type AdminClientDomain = {
   createdAt: string;
 };
 
+export type AdminClientMailProvider = {
+  id: string;
+  name: string;
+  isActive: boolean;
+  isDefault: boolean;
+};
+
 export type AdminClientRow = {
   id: string;
   name: string;
   createdAt: string;
+  mailProvider: AdminClientMailProvider | null;
   domains: AdminClientDomain[];
 };
 
@@ -34,7 +42,7 @@ export async function fetchPlatformAdminClients(token: string) {
 
 export async function createPlatformAdminClient(
   token: string,
-  body: { name: string; initialDomain?: string },
+  body: { name: string; initialDomain?: string; mailProviderId?: string },
 ) {
   return postJson<{ client: AdminClientRow }>(base, body, { token });
 }
@@ -42,9 +50,9 @@ export async function createPlatformAdminClient(
 export async function patchPlatformAdminClient(
   token: string,
   clientId: string,
-  body: { name: string },
+  body: { name?: string; mailProviderId?: string },
 ) {
-  return patchJson<{ client: { id: string; name: string; createdAt: string } }>(
+  return patchJson<{ client: AdminClientRow }>(
     `${base}/${encodeURIComponent(clientId)}`,
     body,
     { token },

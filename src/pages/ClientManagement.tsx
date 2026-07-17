@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,6 +18,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -40,6 +47,10 @@ import {
   platformAdminClientsQueryKey,
   setPlatformAdminClientDefaultDomain,
 } from "@/lib/platformAdminClients";
+import {
+  fetchPlatformAdminMailProviders,
+  platformAdminMailProvidersQueryKey,
+} from "@/lib/platformAdminMailProviders";
 import { Building2, Loader2, Plus, Trash2, Star, Pencil } from "lucide-react";
 
 const ClientManagement = () => {
@@ -48,8 +59,10 @@ const ClientManagement = () => {
   const [createOpen, setCreateOpen] = useState(false);
   const [createName, setCreateName] = useState("");
   const [createDomain, setCreateDomain] = useState("");
+  const [createMailProviderId, setCreateMailProviderId] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  const [editMailProviderId, setEditMailProviderId] = useState("");
   const [domainClientId, setDomainClientId] = useState<string | null>(null);
   const [newDomain, setNewDomain] = useState("");
   const [deleteClientId, setDeleteClientId] = useState<string | null>(null);
@@ -59,6 +72,22 @@ const ClientManagement = () => {
     queryFn: () => fetchPlatformAdminClients(token!),
     enabled: Boolean(token),
   });
+
+  const providersQuery = useQuery({
+    queryKey: platformAdminMailProvidersQueryKey,
+    queryFn: () => fetchPlatformAdminMailProviders(token!),
+    enabled: Boolean(token),
+  });
+
+  const providers = providersQuery.data?.providers ?? [];
+  const defaultProviderId =
+    providers.find((p) => p.isDefault)?.id ?? providers[0]?.id ?? "";
+
+  useEffect(() => {
+    if (createOpen && defaultProviderId && !createMailProviderId) {
+      setCreateMailProviderId(defaultProviderId);
+    }
+  }, [createOpen, defaultProviderId, createMailProviderId]);
 
   const invalidate = () =>
     void queryClient.invalidateQueries({ queryKey: platformAdminClientsQueryKey });
@@ -72,6 +101,7 @@ const ClientManagement = () => {
       return createPlatformAdminClient(token, {
         name,
         ...(d ? { initialDomain: d } : {}),
+        ...(createMailProviderId ? { mailProviderId: createMailProviderId } : {}),
       });
     },
     onSuccess: () => {
@@ -79,6 +109,7 @@ const ClientManagement = () => {
       setCreateOpen(false);
       setCreateName("");
       setCreateDomain("");
+      setCreateMailProviderId("");
       toast.success("Cliente creado");
     },
     onError: (err: unknown) => {
@@ -103,7 +134,12 @@ const ClientManagement = () => {
       if (!token || !editId) throw new Error("NO_CONTEXT");
       const name = editName.trim();
       if (!name) throw new Error("NAME");
-      return patchPlatformAdminClient(token, editId, { name });
+      const client = listQuery.data?.clients.find((c) => c.id === editId);
+      const body: { name?: string; mailProviderId?: string } = { name };
+      if (editMailProviderId && editMailProviderId !== client?.mailProvider?.id) {
+        body.mailProviderId = editMailProviderId;
+      }
+      return patchPlatformAdminClient(token, editId, body);
     },
     onSuccess: () => {
       invalidate();
@@ -237,6 +273,7 @@ const ClientManagement = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nombre</TableHead>
+                  <TableHead>Proveedor</TableHead>
                   <TableHead>ID</TableHead>
                   <TableHead>Dominios</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
@@ -246,6 +283,16 @@ const ClientManagement = () => {
                 {(listQuery.data?.clients ?? []).map((c) => (
                   <TableRow key={c.id}>
                     <TableCell className="font-medium">{c.name}</TableCell>
+                    <TableCell>
+                      {c.mailProvider ? (
+                        <Badge variant={c.mailProvider.isActive ? "secondary" : "outline"}>
+                          {c.mailProvider.name}
+                          {c.mailProvider.isDefault ? " · principal" : ""}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">—</span>
+                      )}
+                    </TableCell>
                     <TableCell className="font-mono text-xs text-muted-foreground max-w-[200px] truncate">
                       {c.id}
                     </TableCell>
@@ -317,6 +364,7 @@ const ClientManagement = () => {
                         onClick={() => {
                           setEditId(c.id);
                           setEditName(c.name);
+                          setEditMailProviderId(c.mailProvider?.id ?? defaultProviderId);
                         }}
                       >
                         <Pencil className="h-4 w-4" />
@@ -366,6 +414,27 @@ const ClientManagement = () => {
                 placeholder="news.cliente.com"
               />
             </div>
+            <div>
+              <Label>Proveedor de correo</Label>
+              <Select
+                value={createMailProviderId}
+                onValueChange={setCreateMailProviderId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona proveedor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {providers
+                    .filter((p) => p.isActive)
+                    .map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                        {p.isDefault ? " (principal)" : ""}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>
@@ -387,7 +456,7 @@ const ClientManagement = () => {
       <Dialog open={editId !== null} onOpenChange={(o) => !o && setEditId(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Renombrar cliente</DialogTitle>
+            <DialogTitle>Editar cliente</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div>
@@ -397,6 +466,27 @@ const ClientManagement = () => {
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
               />
+            </div>
+            <div>
+              <Label>Proveedor de correo</Label>
+              <Select
+                value={editMailProviderId}
+                onValueChange={setEditMailProviderId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona proveedor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {providers
+                    .filter((p) => p.isActive)
+                    .map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                        {p.isDefault ? " (principal)" : ""}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>

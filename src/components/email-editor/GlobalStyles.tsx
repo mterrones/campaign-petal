@@ -40,6 +40,9 @@ export function GlobalStyles({ styles, onChange }: GlobalStylesProps) {
             {FONT_OPTIONS.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
           </SelectContent>
         </Select>
+        <p className="text-[10px] text-muted-foreground mt-1">
+          Fuentes como Inter o Roboto pueden mostrarse como Arial/Helvetica en algunos clientes de correo.
+        </p>
       </div>
 
       <div>

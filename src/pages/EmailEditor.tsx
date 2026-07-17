@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Save, Send, GripVertical, Trash2, Copy, Undo2, Redo2, Download, Monitor, Smartphone, Settings, Code, PanelRight, LayoutGrid } from "lucide-react";
+import { ArrowLeft, Save, Send, GripVertical, Trash2, Copy, Undo2, Redo2, Download, Monitor, Smartphone, Settings, Code, PanelRight, LayoutGrid, Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { emailTemplates } from "@/components/email-editor/templates";
 import {
@@ -9,6 +9,11 @@ import {
 } from "@/lib/userTemplates";
 import { useAuth } from "@/context/AuthContext";
 import { ApiError, mailingApiV1Path, patchJson, postJson } from "@/lib/api";
+import {
+  getClientDeliveryErrorMessage,
+  resolveClientSendErrorMessage,
+  extractErrorCodeFromBody,
+} from "@/lib/clientDeliveryErrors";
 import {
   buildFromHeader,
   resolveInitialSendDomain,
@@ -54,12 +59,28 @@ import {
   platformContactDirectoriesQueryKey,
 } from "@/lib/platformContacts";
 import {
+  classifyTestDeliveryStatus,
+  fetchPlatformMessageStatus,
+  platformMessageStatusQueryKey,
+  TEST_DELIVERY_POLL_INTERVAL_MS,
+  TEST_DELIVERY_POLL_TIMEOUT_MS,
+} from "@/lib/platformSendStatus";
+import { Badge } from "@/components/ui/badge";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
+type SendWizardStep = "test" | "testResult" | "agenda";
+
+function sendWizardStepNumber(step: SendWizardStep): number {
+  if (step === "test") return 1;
+  if (step === "testResult") return 2;
+  return 3;
+}
 
 type SendEmailResponse = {
   id: string;
@@ -110,7 +131,9 @@ const EmailEditor = () => {
   const [showBlocks, setShowBlocks] = useState(false);
   const [showProps, setShowProps] = useState(false);
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
-  const [sendStep, setSendStep] = useState<"test" | "agenda">("test");
+  const [sendStep, setSendStep] = useState<SendWizardStep>("test");
+  const [testMessageId, setTestMessageId] = useState<string | null>(null);
+  const [testPollStartedAt, setTestPollStartedAt] = useState<number | null>(null);
   const [sendTo, setSendTo] = useState("");
   const [sendSubject, setSendSubject] = useState("");
   const [selectedAgendaId, setSelectedAgendaId] = useState("all");
@@ -141,6 +164,53 @@ const EmailEditor = () => {
   });
 
   const agendaRecipientCount = activeAgendaCountQuery.data?.count ?? 0;
+
+  const testMessageQuery = useQuery({
+    queryKey: platformMessageStatusQueryKey(testMessageId ?? ""),
+    queryFn: () => fetchPlatformMessageStatus(token!, testMessageId!),
+    enabled:
+      !!token &&
+      sendDialogOpen &&
+      sendStep === "testResult" &&
+      testMessageId != null,
+    refetchInterval: (query) => {
+      const status = query.state.data?.deliveryStatus;
+      if (!status) return TEST_DELIVERY_POLL_INTERVAL_MS;
+      const phase = classifyTestDeliveryStatus(status);
+      return phase === "pending" ? TEST_DELIVERY_POLL_INTERVAL_MS : false;
+    },
+  });
+
+  const testDeliveryPhase = testMessageQuery.data
+    ? classifyTestDeliveryStatus(testMessageQuery.data.deliveryStatus)
+    : "pending";
+
+  const [testPollTimedOut, setTestPollTimedOut] = useState(false);
+
+  useEffect(() => {
+    if (
+      sendStep !== "testResult" ||
+      testPollStartedAt == null ||
+      testDeliveryPhase !== "pending"
+    ) {
+      setTestPollTimedOut(false);
+      return;
+    }
+    const remaining = TEST_DELIVERY_POLL_TIMEOUT_MS - (Date.now() - testPollStartedAt);
+    if (remaining <= 0) {
+      setTestPollTimedOut(true);
+      return;
+    }
+    const timer = window.setTimeout(() => setTestPollTimedOut(true), remaining);
+    return () => window.clearTimeout(timer);
+  }, [sendStep, testPollStartedAt, testDeliveryPhase, testMessageQuery.dataUpdatedAt]);
+
+  const resetSendWizard = () => {
+    setSendStep("test");
+    setTestMessageId(null);
+    setTestPollStartedAt(null);
+    setTestPollTimedOut(false);
+  };
 
   const selectedBlockData = editor.blocks.find(b => b.id === editor.selectedBlock) || null;
   const selectedInnerData = editor.selectedInner
@@ -292,8 +362,13 @@ const EmailEditor = () => {
   };
 
   const sendingDomains = user?.sendingDomains ?? [];
+  const sendEnabled = user?.canSendMail !== false;
 
   const openSendDialog = () => {
+    if (!sendEnabled) {
+      toast.error(getClientDeliveryErrorMessage("MAIL_DELIVERY_NOT_CONFIGURED"));
+      return;
+    }
     if (sendingDomains.length === 0) {
       toast.error(
         "Tu cuenta no tiene dominios de envío. Revisa Configuración → Dominio o contacta al administrador.",
@@ -377,38 +452,36 @@ const EmailEditor = () => {
         toast.warning(
           "Esta dirección está en lista de exclusión; no se enviará el correo de prueba.",
         );
-        setSendStep("agenda");
       } else if (res.deliveryStatus === "enqueued" || res.deliveryStatus === "sent") {
         invalidateCampaignQueries();
-        toast.success(
-          res.deliveryStatus === "enqueued"
-            ? "Correo en cola; el envío se completará en breve. Continúa con la agenda."
-            : "Prueba enviada. Continúa con la agenda.",
-        );
-        setSendStep("agenda");
+        setTestMessageId(res.id);
+        setTestPollStartedAt(Date.now());
+        setTestPollTimedOut(false);
+        setSendStep("testResult");
       } else {
-        toast.error(res.errorDetail || "No se pudo completar el envío (SMTP)");
+        toast.error(
+          getClientDeliveryErrorMessage(res.errorCode) ||
+            "No se pudo completar el envío.",
+        );
       }
     } catch (e) {
       if (e instanceof ApiError) {
         if (e.status === 429) {
           toast.error("Demasiados envíos seguidos. Espera un momento.");
         } else if (e.status === 502) {
-          const body = e.body as SendEmailResponse | { error?: string };
-          const detail =
-            typeof body === "object" && body && "errorDetail" in body
-              ? (body as SendEmailResponse).errorDetail
-              : null;
-          toast.error(detail || "Error al entregar el correo");
+          const body = e.body as SendEmailResponse | { error?: string; errorCode?: string };
+          const code = extractErrorCodeFromBody(body);
+          if (code) {
+            toast.error(getClientDeliveryErrorMessage(code));
+          } else {
+            const detail =
+              typeof body === "object" && body && "errorDetail" in body
+                ? (body as SendEmailResponse).errorDetail
+                : null;
+            toast.error(detail || "Error al entregar el correo");
+          }
         } else if (e.status === 400) {
-          const body = e.body as { error?: string };
-          const msg =
-            typeof body?.error === "string" ? body.error : e.message;
-          toast.error(
-            msg.includes("domain") || msg.includes("Sending domain")
-              ? "El remitente no está permitido para tu cuenta. Usa un dominio registrado."
-              : msg,
-          );
+          toast.error(resolveClientSendErrorMessage(e.body));
         } else {
           toast.error("No se pudo enviar la prueba");
         }
@@ -484,14 +557,7 @@ const EmailEditor = () => {
         if (e.status === 429) {
           toast.error("Límite de envíos masivos. Espera unos minutos.");
         } else if (e.status === 400) {
-          const body = e.body as { error?: string };
-          const msg =
-            typeof body?.error === "string" ? body.error : e.message;
-          toast.error(
-            msg.includes("domain") || msg.includes("Sending domain")
-              ? "El remitente no está permitido para tu cuenta. Usa un dominio registrado."
-              : msg,
-          );
+          toast.error(resolveClientSendErrorMessage(e.body));
         } else {
           toast.error("No se pudo completar el envío masivo");
         }
@@ -620,7 +686,7 @@ const EmailEditor = () => {
                 <Button variant="outline" size="sm" onClick={openSaveTemplateDialog}>
                   <Save className="w-3.5 h-3.5 mr-1.5" />Guardar como plantilla
                 </Button>
-                <Button size="sm" onClick={openSendDialog}>
+                <Button size="sm" onClick={openSendDialog} disabled={!sendEnabled}>
                   <Send className="w-3.5 h-3.5 mr-1.5" />Enviar
                 </Button>
               </>
@@ -659,7 +725,7 @@ const EmailEditor = () => {
               <Button variant="outline" size="sm" onClick={openSaveTemplateDialog}>
                 <Save className="w-3.5 h-3.5 mr-1" />Plantilla
               </Button>
-              <Button size="sm" onClick={openSendDialog}>
+              <Button size="sm" onClick={openSendDialog} disabled={!sendEnabled}>
                 <Send className="w-3.5 h-3.5 mr-1" />Enviar
               </Button>
             </>
@@ -722,7 +788,8 @@ const EmailEditor = () => {
                 }`}
                 style={{ backgroundColor: editor.globalStyles.bodyBgColor }}
               >
-                <div style={{ maxWidth: `${editor.globalStyles.emailWidth}px`, margin: "0 auto", padding: `${editor.globalStyles.padding}px 24px`, backgroundColor: editor.globalStyles.contentBgColor, fontFamily: editor.globalStyles.fontFamily }}>
+                <div style={{ padding: `${editor.globalStyles.padding}px 16px` }}>
+                <div style={{ maxWidth: `${editor.globalStyles.emailWidth}px`, margin: "0 auto", padding: "0 10px", backgroundColor: editor.globalStyles.contentBgColor, fontFamily: editor.globalStyles.fontFamily }}>
                   {editor.blocks.length === 0 && !editor.dragState.draggedNewType && !editor.dragState.draggedBlockId && (
                     <div className="py-20 text-center text-muted-foreground border-2 border-dashed rounded-xl">
                       <GripVertical className="w-8 h-8 mx-auto mb-3 opacity-40" />
@@ -797,6 +864,7 @@ const EmailEditor = () => {
                     </div>
                   )}
                 </div>
+                </div>
               </div>
             </TabsContent>
 
@@ -816,42 +884,20 @@ const EmailEditor = () => {
                     <p><strong>Asunto:</strong> {editor.subject}</p>
                     {editor.globalStyles.preheaderText && <p className="text-muted-foreground text-xs mt-1">{editor.globalStyles.preheaderText}</p>}
                   </div>
-                  <div style={{
-                    maxWidth: editor.previewMode === "mobile" ? "375px" : `${editor.globalStyles.emailWidth}px`,
-                    margin: "0 auto",
-                    padding: `${editor.globalStyles.padding}px 24px`,
-                    backgroundColor: editor.globalStyles.contentBgColor,
-                    borderRadius: "12px",
-                    border: "1px solid hsl(214, 32%, 91%)",
-                    fontFamily: editor.globalStyles.fontFamily,
-                  }}>
-                    {editor.blocks.map(block => (
-                      <BlockRenderer
-                        key={block.id}
-                        block={block}
-                        isPreview
-                        globalStyles={editor.globalStyles}
-                        selectedBlock={null}
-                        selectedInner={null}
-                        draggedBlockId={null}
-                        draggedInner={null}
-                        innerDropTarget={null}
-                        previewMode={editor.previewMode}
-                        onBlockDragStart={() => {}}
-                        onInnerBlockDragStart={() => {}}
-                        onColumnDragOver={() => {}}
-                        onColumnDrop={() => {}}
-                        onSelectBlock={() => {}}
-                        onSelectInner={() => {}}
-                        onRemoveBlock={() => {}}
-                        onDuplicateBlock={() => {}}
-                        onRemoveInnerBlock={() => {}}
-                        onDuplicateInnerBlock={() => {}}
-                        onAddInnerBlock={() => {}}
-                        onResetDrag={() => {}}
-                      />
-                    ))}
-                  </div>
+                  <iframe
+                    title="Vista previa del correo"
+                    srcDoc={exportHtml(editor.blocks, editor.globalStyles, editor.subject)}
+                    style={{
+                      width: editor.previewMode === "mobile" ? "375px" : `${editor.globalStyles.emailWidth}px`,
+                      maxWidth: "100%",
+                      height: "800px",
+                      margin: "0 auto",
+                      display: "block",
+                      border: "1px solid hsl(214, 32%, 91%)",
+                      borderRadius: "12px",
+                      backgroundColor: "#ffffff",
+                    }}
+                  />
                 </div>
               </div>
             </TabsContent>
@@ -953,16 +999,19 @@ const EmailEditor = () => {
         open={sendDialogOpen}
         onOpenChange={(open) => {
           setSendDialogOpen(open);
-          if (!open) setSendStep("test");
+          if (!open) resetSendWizard();
         }}
       >
         <DialogContent className="sm:max-w-md">
+          <p className="text-xs text-muted-foreground -mt-1 mb-1">
+            Paso {sendWizardStepNumber(sendStep)} de 3
+          </p>
           {sendStep === "test" ? (
             <>
               <DialogHeader>
                 <DialogTitle>Paso 1: correo de prueba</DialogTitle>
                 <DialogDescription>
-                  Envía una prueba real al email indicado con el HTML y asunto actuales. Si llega bien, podrás elegir una agenda.
+                  Envía una prueba real al email indicado. Después confirmaremos el resultado antes de elegir la agenda.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-2">
@@ -1009,10 +1058,97 @@ const EmailEditor = () => {
                 </Button>
               </DialogFooter>
             </>
+          ) : sendStep === "testResult" ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Paso 2: resultado de la prueba</DialogTitle>
+                <DialogDescription>
+                  Espera a que se confirme el envío de la prueba antes de continuar con la campaña.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                <p className="text-sm text-muted-foreground">
+                  Destinatario de prueba:{" "}
+                  <span className="font-medium text-foreground break-all">{sendTo}</span>
+                </p>
+                {testMessageQuery.isError ? (
+                  <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-3 text-sm text-destructive">
+                    <XCircle className="h-5 w-5 shrink-0 mt-0.5" />
+                    <span>No se pudo consultar el estado del envío. Intenta enviar la prueba de nuevo.</span>
+                  </div>
+                ) : testPollTimedOut ? (
+                  <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-3 text-sm text-amber-900 dark:text-amber-200">
+                    <XCircle className="h-5 w-5 shrink-0 mt-0.5" />
+                    <span>No se pudo confirmar el envío a tiempo. Revisa tu bandeja o envía otra prueba.</span>
+                  </div>
+                ) : testDeliveryPhase === "pending" ? (
+                  <div className="flex items-center gap-3 rounded-md border bg-muted/40 px-3 py-4 text-sm">
+                    <Loader2 className="h-5 w-5 animate-spin text-primary shrink-0" />
+                    <span>Enviando correo de prueba…</span>
+                  </div>
+                ) : testDeliveryPhase === "success" ? (
+                  <div className="flex items-start gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-3 text-sm">
+                    <CheckCircle2 className="h-5 w-5 shrink-0 mt-0.5 text-emerald-600" />
+                    <div className="space-y-1">
+                      <p className="font-medium text-foreground">Prueba enviada correctamente</p>
+                      <p className="text-muted-foreground text-xs">
+                        Ya puedes continuar y elegir la agenda para lanzar la campaña.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-3 text-sm text-destructive">
+                    <XCircle className="h-5 w-5 shrink-0 mt-0.5" />
+                    <span>
+                      {getClientDeliveryErrorMessage(testMessageQuery.data?.errorCode) ||
+                        "No se pudo completar el envío de la prueba."}
+                    </span>
+                  </div>
+                )}
+                {testMessageQuery.data && testDeliveryPhase !== "pending" && !testPollTimedOut && (
+                  <Badge variant="secondary" className="font-normal">
+                    Estado: {testMessageQuery.data.deliveryStatus}
+                  </Badge>
+                )}
+              </div>
+              <DialogFooter className="gap-2 sm:gap-0 flex-col sm:flex-row">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setTestMessageId(null);
+                    setTestPollStartedAt(null);
+                    setTestPollTimedOut(false);
+                    setSendStep("test");
+                  }}
+                  className="w-full sm:w-auto"
+                >
+                  {testDeliveryPhase === "failure" || testPollTimedOut
+                    ? "Enviar otra prueba"
+                    : "Atrás"}
+                </Button>
+                <div className="flex gap-2 w-full sm:w-auto sm:ml-auto">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setSendDialogOpen(false)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => setSendStep("agenda")}
+                    disabled={testDeliveryPhase !== "success"}
+                  >
+                    Continuar a la agenda
+                  </Button>
+                </div>
+              </DialogFooter>
+            </>
           ) : (
             <>
               <DialogHeader>
-                <DialogTitle>Paso 2: agenda de contactos</DialogTitle>
+                <DialogTitle>Paso 3: agenda de contactos</DialogTitle>
                 <DialogDescription>
                   Elige la lista de destinatarios (solo contactos activos). Se usará el mismo remitente, asunto y HTML que en la prueba.
                 </DialogDescription>
@@ -1047,7 +1183,7 @@ const EmailEditor = () => {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setSendStep("test")}
+                  onClick={() => setSendStep("testResult")}
                   disabled={sendSubmitting}
                   className="w-full sm:w-auto"
                 >

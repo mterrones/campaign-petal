@@ -14,6 +14,14 @@ function fontStack(ff: string): string {
   return `${ff}, ${safe}`;
 }
 
+function textToHtml(s: string): string {
+  return (s || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\r\n|\r|\n/g, "<br />");
+}
+
 function renderSocialIcons(content: Record<string, string>): string {
   const size = content.iconSize || "24";
   return SOCIAL_NETWORKS.filter(sn => content[sn.key]).map(sn => {
@@ -46,14 +54,15 @@ function renderInnerBlockHtml(block: InnerBlock, gs: GlobalEmailStyles): string 
     case "heading": {
       const tag = c.level || "h1";
       const fs = c.fontSize || "24";
+      const headingFf = fontStack(c.fontFamily || gs.fontFamily);
       return wrap(
-        `<${tag} style="margin:0;color:${c.color || "#1a1a2e"};font-size:${fs}px;font-weight:${c.bold === "true" ? "bold" : "normal"};font-style:${c.italic === "true" ? "italic" : "normal"};font-family:${ff};mso-line-height-rule:exactly;text-align:${c.align || "left"};">${c.text}</${tag}>`,
+        `<${tag} style="margin:0;color:${c.color || "#1a1a2e"};font-size:${fs}px;font-weight:${c.bold === "true" ? "bold" : "normal"};font-style:${c.italic === "true" ? "italic" : "normal"};font-family:${headingFf};mso-line-height-rule:exactly;text-align:${c.align || "left"};">${textToHtml(c.text)}</${tag}>`,
         p
       );
     }
     case "text":
       return wrap(
-        `<p style="margin:0;color:${c.color || "#4a4a5a"};font-size:${c.fontSize || "14"}px;line-height:${c.lineHeight || "1.6"};font-family:${ff};mso-line-height-rule:exactly;">${c.text}</p>`,
+        `<p style="margin:0;color:${c.color || "#4a4a5a"};font-size:${c.fontSize || "14"}px;line-height:${c.lineHeight || "1.6"};font-family:${ff};mso-line-height-rule:exactly;">${textToHtml(c.text)}</p>`,
         p
       );
     case "image": {
@@ -169,7 +178,7 @@ function renderBlockHtml(block: EmailBlock, gs: GlobalEmailStyles): string {
         .map((col, i) => {
           const inner = col.map((innerBlock) => renderInnerBlockHtml(innerBlock, gs)).join("");
           const pct = widthsPct[i] ?? 100 / n;
-          return `<td style="width:${pct}%;vertical-align:top;padding:0 ${gap / 2}px;" valign="top">${inner}</td>`;
+          return `<td class="ems-col" style="width:${pct}%;vertical-align:top;padding:0 ${gap / 2}px;" valign="top">${inner}</td>`;
         })
         .join("");
 
@@ -259,6 +268,9 @@ export function exportHtml(blocks: EmailBlock[], globalStyles: GlobalEmailStyles
   .ExternalClass { width:100%; }
   .ExternalClass, .ExternalClass p, .ExternalClass span, .ExternalClass font, .ExternalClass td, .ExternalClass div { line-height:100%; }
   a { color:${globalStyles.linkColor}; }
+  @media only screen and (max-width:600px) {
+    .ems-col { display:block !important; width:100% !important; box-sizing:border-box; padding:0 0 12px 0 !important; }
+  }
 </style>
 </head>
 <body style="margin:0;padding:0;background-color:${globalStyles.bodyBgColor};font-family:${ff};-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;" bgcolor="${globalStyles.bodyBgColor}">
@@ -270,7 +282,7 @@ ${globalStyles.preheaderText ? `<div style="display:none;font-size:1px;color:${g
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${globalStyles.bodyBgColor};" bgcolor="${globalStyles.bodyBgColor}">
 <tr><td align="center" style="padding:${globalStyles.padding}px 16px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:${ew}px;width:100%;background-color:${globalStyles.contentBgColor};" bgcolor="${globalStyles.contentBgColor}">
-<tr><td style="padding:0;">
+<tr><td style="padding:0 10px;">
 ${content}
 </td></tr>
 </table>

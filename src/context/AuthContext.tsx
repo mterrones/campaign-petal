@@ -29,12 +29,14 @@ export type AuthUser = {
   clientId: string | null;
   sendingDomains: string[];
   defaultFrom: string | null;
+  canSendMail: boolean;
   impersonation: ImpersonationActor | null;
 };
 
-type RawAuthUser = Omit<AuthUser, "sendingDomains" | "defaultFrom" | "impersonation"> & {
+type RawAuthUser = Omit<AuthUser, "sendingDomains" | "defaultFrom" | "impersonation" | "canSendMail"> & {
   sendingDomains?: string[];
   defaultFrom?: string | null;
+  canSendMail?: boolean;
   impersonation?: ImpersonationActor | null;
 };
 
@@ -50,6 +52,7 @@ function normalizeAuthUser(raw: RawAuthUser): AuthUser {
     clientId: raw.clientId,
     sendingDomains: Array.isArray(raw.sendingDomains) ? raw.sendingDomains : [],
     defaultFrom: raw.defaultFrom ?? null,
+    canSendMail: raw.canSendMail ?? true,
     impersonation,
   };
 }

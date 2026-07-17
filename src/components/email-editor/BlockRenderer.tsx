@@ -57,12 +57,12 @@ function renderSocialPreview(content: Record<string, string>) {
   );
 }
 
-function renderMenuPreview(content: Record<string, string>) {
+function renderMenuPreview(content: Record<string, string>, globalStyles: GlobalEmailStyles) {
   let items: { text: string; url: string }[] = [];
   try { items = JSON.parse(content.items || "[]"); } catch {}
   const sep = content.separator || "|";
   return (
-    <div style={{ textAlign: (content.align as any) || "center", padding: "12px 0", fontSize: `${content.fontSize || 14}px` }}>
+    <div style={{ textAlign: (content.align as any) || "center", padding: "12px 0", fontSize: `${content.fontSize || 14}px`, fontFamily: globalStyles.fontFamily }}>
       {items.map((item, i) => (
         <span key={i}>
           {i > 0 && <span style={{ color: "#ccc", margin: "0 8px" }}>{sep}</span>}
@@ -80,16 +80,18 @@ function InnerContent({ inner, globalStyles }: { inner: InnerBlock; globalStyles
   switch (inner.type) {
     case "heading": {
       const Tag = (c.level || "h1") as keyof JSX.IntrinsicElements;
-      return <Tag style={{ ...pad, textAlign: (c.align as any) || "left", fontSize: `${c.fontSize || 24}px`, fontWeight: c.bold === "true" ? "bold" : "normal", fontStyle: c.italic === "true" ? "italic" : "normal", color: c.color || "#1a1a2e", fontFamily: c.fontFamily || globalStyles.fontFamily, margin: 0 }}>{c.text}</Tag>;
+      return <Tag style={{ ...pad, textAlign: (c.align as any) || "left", fontSize: `${c.fontSize || 24}px`, fontWeight: c.bold === "true" ? "bold" : "normal", fontStyle: c.italic === "true" ? "italic" : "normal", color: c.color || "#1a1a2e", fontFamily: c.fontFamily || globalStyles.fontFamily, margin: 0, whiteSpace: "pre-wrap" }}>{c.text}</Tag>;
     }
     case "text":
-      return <p style={{ ...pad, fontSize: `${c.fontSize || 14}px`, lineHeight: c.lineHeight || "1.6", color: c.color || "#4a4a5a", margin: 0, fontFamily: globalStyles.fontFamily }}>{c.text}</p>;
+      return <p style={{ ...pad, fontSize: `${c.fontSize || 14}px`, lineHeight: c.lineHeight || "1.6", color: c.color || "#4a4a5a", margin: 0, fontFamily: globalStyles.fontFamily, whiteSpace: "pre-wrap" }}>{c.text}</p>;
     case "image": {
-      const img = <img src={c.url} alt={c.alt || ""} style={{ width: `${c.width || 100}%`, borderRadius: `${c.borderRadius || 0}px`, display: "block", margin: "0 auto" }} />;
+      const imgAlign = c.align || "center";
+      const imgMargin = imgAlign === "right" ? "0 0 0 auto" : imgAlign === "left" ? "0" : "0 auto";
+      const img = <img src={c.url} alt={c.alt || ""} style={{ width: `${c.width || 100}%`, borderRadius: `${c.borderRadius || 0}px`, display: "block", margin: imgMargin }} />;
       return (
-        <div style={{ ...pad, textAlign: (c.align as any) || "center" }}>
+        <div style={{ ...pad, textAlign: imgAlign as any }}>
           {c.linkUrl ? <a href={c.linkUrl} target="_blank" rel="noopener noreferrer">{img}</a> : img}
-          {c.caption && <p style={{ fontSize: "12px", color: "#999", margin: "4px 0 0" }}>{c.caption}</p>}
+          {c.caption && <p style={{ fontSize: "12px", color: "#999", margin: "4px 0 0", textAlign: imgAlign as any, fontFamily: globalStyles.fontFamily }}>{c.caption}</p>}
         </div>
       );
     }
@@ -113,7 +115,7 @@ function InnerContent({ inner, globalStyles }: { inner: InnerBlock; globalStyles
       return (
         <div style={{ textAlign: "center", padding: "12px 0" }}>
           <a href={c.url} target="_blank" rel="noopener noreferrer">
-            <img src={c.thumbnailUrl || "https://placehold.co/600x340/1a1a2e/ffffff?text=▶"} alt="Video" style={{ width: "100%", borderRadius: "8px" }} />
+            <img src={c.thumbnailUrl || "https://placehold.co/600x340/1a1a2e/ffffff?text=▶"} alt="Video" style={{ width: "100%", display: "block" }} />
           </a>
         </div>
       );
@@ -180,12 +182,12 @@ function BlockContent({ block, globalStyles }: { block: EmailBlock; globalStyles
     case "logo":
       return (
         <div style={{ textAlign: (c.align as any) || "center", padding: "16px 0" }}>
-          <img src={c.url} alt={c.alt || ""} style={{ width: `${c.width || 200}px` }} />
+          <img src={c.url} alt={c.alt || ""} style={{ width: `${c.width || 200}px`, maxWidth: "100%", display: "inline-block" }} />
           {c.companyName && <p style={{ fontSize: "14px", fontWeight: 600, margin: "8px 0 0", fontFamily: globalStyles.fontFamily }}>{c.companyName}</p>}
         </div>
       );
     case "menu":
-      return renderMenuPreview(c);
+      return renderMenuPreview(c, globalStyles);
     default:
       return null;
   }

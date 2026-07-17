@@ -195,6 +195,12 @@ const AppSidebar = () => {
       label: "Gestión de clientes",
       exact: true,
     },
+    {
+      to: "/admin/mail-providers",
+      icon: Mail,
+      label: "Proveedores de correo",
+      exact: true,
+    },
   ];
 
   return (

@@ -22,6 +22,7 @@ import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import AdminUsers from "./pages/AdminUsers";
 import ClientManagement from "./pages/ClientManagement";
+import MailProviderManagement from "./pages/MailProviderManagement";
 
 const queryClient = new QueryClient();
 
@@ -53,6 +54,7 @@ const App = () => (
                 <Route path="/api-keys" element={<ApiKeys />} />
                 <Route path="/admin/users" element={<AdminUsers />} />
                 <Route path="/admin/clients" element={<ClientManagement />} />
+                <Route path="/admin/mail-providers" element={<MailProviderManagement />} />
                 <Route path="*" element={<NotFound />} />
                 </Route>
               </Route>
