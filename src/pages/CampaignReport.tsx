@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
-import { ArrowLeft, ChevronLeft, ChevronRight, Send, Eye, MousePointerClick, AlertTriangle } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Send, Eye, MousePointerClick, AlertTriangle, Clock } from "lucide-react";
 import { Link } from "react-router-dom";
 import StatCard from "@/components/StatCard";
 import CampaignStatusBadge from "@/components/CampaignStatusBadge";
+import MessageTimelineDialog from "@/components/MessageTimelineDialog";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +30,7 @@ const CampaignReport = () => {
   const { id } = useParams();
   const { token } = useAuth();
   const [messagePage, setMessagePage] = useState(1);
+  const [timelineMessageId, setTimelineMessageId] = useState<string | null>(null);
 
   useEffect(() => {
     setMessagePage(1);
@@ -295,18 +297,19 @@ const CampaignReport = () => {
                 <TableHead className="text-right">Aperturas</TableHead>
                 <TableHead className="text-right">Clicks</TableHead>
                 <TableHead>Enviado</TableHead>
+                <TableHead className="w-[110px] text-right">Tiempos</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {messagesQuery.isPending && pagedMessages.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground text-sm py-8">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground text-sm py-8">
                     Cargando mensajes…
                   </TableCell>
                 </TableRow>
               ) : pagedMessages.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground text-sm py-8">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground text-sm py-8">
                     No hay mensajes en esta campaña todavía.
                   </TableCell>
                 </TableRow>
@@ -319,6 +322,18 @@ const CampaignReport = () => {
                     <TableCell className="text-right text-sm">{m.clickCount}</TableCell>
                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap tabular-nums">
                       {formatDateTimeGmtMinus5(m.sentAt ?? m.createdAt)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1"
+                        onClick={() => setTimelineMessageId(m.id)}
+                      >
+                        <Clock className="w-4 h-4" />
+                        Tiempos
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))
@@ -357,6 +372,14 @@ const CampaignReport = () => {
           </div>
         )}
       </div>
+
+      <MessageTimelineDialog
+        messageId={timelineMessageId}
+        open={timelineMessageId != null}
+        onOpenChange={(open) => {
+          if (!open) setTimelineMessageId(null);
+        }}
+      />
     </div>
   );
 };

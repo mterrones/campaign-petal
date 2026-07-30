@@ -8,6 +8,7 @@ import {
   AlertCircle,
   ChevronLeft,
   ChevronRight,
+  Clock,
 } from "lucide-react";
 import {
   Dialog,
@@ -17,6 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import StatCard from "@/components/StatCard";
+import MessageTimelineDialog from "@/components/MessageTimelineDialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -48,9 +50,19 @@ const ReportsApi = () => {
   const initial = useMemo(() => defaultDateRange(30), []);
   const [from, setFrom] = useState(initial.from);
   const [to, setTo] = useState(initial.to);
-  const [applied, setApplied] = useState({ from: initial.from, to: initial.to });
+  const [email, setEmail] = useState("");
+  const [subject, setSubject] = useState("");
+  const [content, setContent] = useState("");
+  const [applied, setApplied] = useState({
+    from: initial.from,
+    to: initial.to,
+    email: "",
+    subject: "",
+    content: "",
+  });
   const [listPage, setListPage] = useState(1);
   const [previewMessageId, setPreviewMessageId] = useState<string | null>(null);
+  const [timelineMessageId, setTimelineMessageId] = useState<string | null>(null);
   const pageSize = defaultApiMessagesPageSize;
 
   const { data, isPending, isError, error, refetch } = useQuery({
@@ -60,12 +72,19 @@ const ReportsApi = () => {
     enabled: !!token && applied.from <= applied.to,
   });
 
+  const appliedFilters = {
+    email: applied.email,
+    subject: applied.subject,
+    content: applied.content,
+  };
+
   const listQuery = useQuery({
     queryKey: platformApiMessagesListQueryKey(
       applied.from,
       applied.to,
       listPage,
       pageSize,
+      appliedFilters,
     ),
     queryFn: () =>
       fetchApiMessagesListPage(
@@ -74,6 +93,7 @@ const ReportsApi = () => {
         applied.to,
         listPage,
         pageSize,
+        appliedFilters,
       ),
     enabled:
       !!token && !!user?.clientId && applied.from <= applied.to,
@@ -87,12 +107,25 @@ const ReportsApi = () => {
 
   const applyFilters = () => {
     if (from > to) return;
-    setApplied({ from, to });
+    setApplied({
+      from,
+      to,
+      email: email.trim(),
+      subject: subject.trim(),
+      content: content.trim(),
+    });
+  };
+
+  const clearSearch = () => {
+    setEmail("");
+    setSubject("");
+    setContent("");
+    setApplied((prev) => ({ ...prev, email: "", subject: "", content: "" }));
   };
 
   useEffect(() => {
     setListPage(1);
-  }, [applied.from, applied.to]);
+  }, [applied.from, applied.to, applied.email, applied.subject, applied.content]);
 
   useEffect(() => {
     const tp = listQuery.data?.totalPages;
@@ -169,6 +202,14 @@ const ReportsApi = () => {
         </DialogContent>
       </Dialog>
 
+      <MessageTimelineDialog
+        messageId={timelineMessageId}
+        open={timelineMessageId != null}
+        onOpenChange={(open) => {
+          if (!open) setTimelineMessageId(null);
+        }}
+      />
+
       <div>
         <h1 className="text-2xl font-bold">Reportes · API</h1>
         <p className="text-muted-foreground mt-1">
@@ -211,9 +252,52 @@ const ReportsApi = () => {
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
-        <Button type="button" onClick={applyFilters} disabled={from > to}>
-          Aplicar
-        </Button>
+        <div className="space-y-2 sm:min-w-[180px] sm:flex-1">
+          <Label htmlFor="rep-email">Correo</Label>
+          <input
+            id="rep-email"
+            type="text"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && applyFilters()}
+            placeholder="destinatario@dominio.com"
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+        </div>
+        <div className="space-y-2 sm:min-w-[180px] sm:flex-1">
+          <Label htmlFor="rep-subject">Asunto</Label>
+          <input
+            id="rep-subject"
+            type="text"
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && applyFilters()}
+            placeholder="Texto del asunto"
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+        </div>
+        <div className="space-y-2 sm:min-w-[180px] sm:flex-1">
+          <Label htmlFor="rep-content">Contenido</Label>
+          <input
+            id="rep-content"
+            type="text"
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && applyFilters()}
+            placeholder="Texto del cuerpo"
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <Button type="button" onClick={applyFilters} disabled={from > to}>
+            Aplicar
+          </Button>
+          {(applied.email || applied.subject || applied.content) && (
+            <Button type="button" variant="outline" onClick={clearSearch}>
+              Limpiar
+            </Button>
+          )}
+        </div>
       </div>
 
       {isPending && (
@@ -315,7 +399,9 @@ const ReportsApi = () => {
                 !listQuery.isError &&
                 detailRows.length === 0 && (
                   <p className="text-sm text-muted-foreground py-6 text-center">
-                    No hay mensajes en este rango.
+                    {applied.email || applied.subject || applied.content
+                      ? "No hay mensajes que coincidan con los filtros."
+                      : "No hay mensajes en este rango."}
                   </p>
                 )}
               {!listQuery.isPending && !listQuery.isError && detailRows.length > 0 && (
@@ -330,7 +416,7 @@ const ReportsApi = () => {
                           <TableHead className="text-right">Clicks</TableHead>
                           <TableHead>Enviado</TableHead>
                           <TableHead className="min-w-[160px]">Asunto</TableHead>
-                          <TableHead className="w-[100px] text-right">Correo</TableHead>
+                          <TableHead className="w-[180px] text-right">Acciones</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -349,16 +435,28 @@ const ReportsApi = () => {
                               {m.subject || "—"}
                             </TableCell>
                             <TableCell className="text-right">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="gap-1"
-                                onClick={() => setPreviewMessageId(m.id)}
-                              >
-                                <Eye className="w-4 h-4" />
-                                Ver
-                              </Button>
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="gap-1"
+                                  onClick={() => setPreviewMessageId(m.id)}
+                                >
+                                  <Eye className="w-4 h-4" />
+                                  Ver
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="gap-1"
+                                  onClick={() => setTimelineMessageId(m.id)}
+                                >
+                                  <Clock className="w-4 h-4" />
+                                  Tiempos
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))}

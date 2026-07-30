@@ -46,12 +46,31 @@ export function defaultDateRange(days: number): { from: string; to: string } {
   };
 }
 
+export type ApiMessagesListFilters = {
+  email?: string;
+  subject?: string;
+  content?: string;
+};
+
 export const platformApiMessagesListQueryKey = (
   from: string,
   to: string,
   page: number,
   limit: number,
-) => ["platform", "reports", "api-messages-list", from, to, page, limit] as const;
+  filters: ApiMessagesListFilters = {},
+) =>
+  [
+    "platform",
+    "reports",
+    "api-messages-list",
+    from,
+    to,
+    page,
+    limit,
+    filters.email ?? "",
+    filters.subject ?? "",
+    filters.content ?? "",
+  ] as const;
 
 export type ApiMessageListItem = {
   id: string;
@@ -81,6 +100,7 @@ export function fetchApiMessagesListPage(
   to: string,
   page: number,
   limit = defaultApiMessagesPageSize,
+  filters: ApiMessagesListFilters = {},
 ): Promise<ApiMessagesListResponse> {
   const sp = new URLSearchParams({
     from,
@@ -88,6 +108,9 @@ export function fetchApiMessagesListPage(
     page: String(page),
     limit: String(limit),
   });
+  if (filters.email) sp.set("email", filters.email);
+  if (filters.subject) sp.set("subject", filters.subject);
+  if (filters.content) sp.set("content", filters.content);
   return getJson<ApiMessagesListResponse>(
     `${mailingApiV1Path}/platform/reports/api-messages/list?${sp.toString()}`,
     token,
@@ -106,6 +129,27 @@ export function fetchApiMessagePreview(
 ): Promise<ApiMessagePreviewResponse> {
   return getJson<ApiMessagePreviewResponse>(
     `${mailingApiV1Path}/platform/reports/api-messages/${encodeURIComponent(messageId)}/preview`,
+    token,
+  );
+}
+
+export type MessageTimelineResponse = {
+  requestReceivedAt: string;
+  sentAt: string | null;
+  deliveredAt: string | null;
+  firstOpenedAt: string | null;
+  deliveryStatus: string;
+};
+
+export const messageTimelineQueryKey = (messageId: string | null) =>
+  ["platform", "reports", "message-timeline", messageId] as const;
+
+export function fetchMessageTimeline(
+  token: string,
+  messageId: string,
+): Promise<MessageTimelineResponse> {
+  return getJson<MessageTimelineResponse>(
+    `${mailingApiV1Path}/platform/reports/messages/${encodeURIComponent(messageId)}/timeline`,
     token,
   );
 }
