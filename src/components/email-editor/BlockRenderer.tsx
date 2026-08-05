@@ -8,8 +8,7 @@ import { getInnerBlockIcon } from "./BlockSidebar";
 function handleUnsubscribePreviewClick(e: React.MouseEvent<HTMLAnchorElement>) {
   e.preventDefault();
   e.stopPropagation();
-  toast({
-    title: "Vista previa",
+  toast("Vista previa", {
     description:
       "En el correo enviado, este enlace llevará al destinatario a la página para darse de baja.",
   });

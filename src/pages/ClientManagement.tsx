@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -60,9 +61,15 @@ const ClientManagement = () => {
   const [createName, setCreateName] = useState("");
   const [createDomain, setCreateDomain] = useState("");
   const [createMailProviderId, setCreateMailProviderId] = useState("");
+  const [createIsTest, setCreateIsTest] = useState(false);
+  const [createTestTotal, setCreateTestTotal] = useState("");
+  const [createTestDaily, setCreateTestDaily] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editMailProviderId, setEditMailProviderId] = useState("");
+  const [editIsTest, setEditIsTest] = useState(false);
+  const [editTestTotal, setEditTestTotal] = useState("");
+  const [editTestDaily, setEditTestDaily] = useState("");
   const [domainClientId, setDomainClientId] = useState<string | null>(null);
   const [newDomain, setNewDomain] = useState("");
   const [deleteClientId, setDeleteClientId] = useState<string | null>(null);
@@ -98,10 +105,24 @@ const ClientManagement = () => {
       const name = createName.trim();
       if (!name) throw new Error("NAME");
       const d = createDomain.trim();
-      return createPlatformAdminClient(token, {
+      const base = {
         name,
         ...(d ? { initialDomain: d } : {}),
         ...(createMailProviderId ? { mailProviderId: createMailProviderId } : {}),
+      };
+      if (!createIsTest) {
+        return createPlatformAdminClient(token, { ...base, isTest: false });
+      }
+      const total = Number(createTestTotal);
+      const daily = Number(createTestDaily);
+      if (!Number.isInteger(total) || total <= 0) throw new Error("TEST_LIMITS");
+      if (!Number.isInteger(daily) || daily <= 0) throw new Error("TEST_LIMITS");
+      if (daily > total) throw new Error("TEST_DAILY_GT_TOTAL");
+      return createPlatformAdminClient(token, {
+        ...base,
+        isTest: true,
+        testTotalLimit: total,
+        testDailyLimit: daily,
       });
     },
     onSuccess: () => {
@@ -110,11 +131,22 @@ const ClientManagement = () => {
       setCreateName("");
       setCreateDomain("");
       setCreateMailProviderId("");
+      setCreateIsTest(false);
+      setCreateTestTotal("");
+      setCreateTestDaily("");
       toast.success("Cliente creado");
     },
     onError: (err: unknown) => {
       if (err instanceof Error && err.message === "NAME") {
         toast.error("Indica el nombre del cliente");
+        return;
+      }
+      if (err instanceof Error && err.message === "TEST_LIMITS") {
+        toast.error("Indica límites de prueba válidos (mayores a 0)");
+        return;
+      }
+      if (err instanceof Error && err.message === "TEST_DAILY_GT_TOTAL") {
+        toast.error("El límite diario no puede superar al total");
         return;
       }
       if (err instanceof ApiError) {
@@ -135,9 +167,25 @@ const ClientManagement = () => {
       const name = editName.trim();
       if (!name) throw new Error("NAME");
       const client = listQuery.data?.clients.find((c) => c.id === editId);
-      const body: { name?: string; mailProviderId?: string } = { name };
+      const body: {
+        name?: string;
+        mailProviderId?: string;
+        isTest?: boolean;
+        testTotalLimit?: number;
+        testDailyLimit?: number;
+      } = { name };
       if (editMailProviderId && editMailProviderId !== client?.mailProvider?.id) {
         body.mailProviderId = editMailProviderId;
+      }
+      body.isTest = editIsTest;
+      if (editIsTest) {
+        const total = Number(editTestTotal);
+        const daily = Number(editTestDaily);
+        if (!Number.isInteger(total) || total <= 0) throw new Error("TEST_LIMITS");
+        if (!Number.isInteger(daily) || daily <= 0) throw new Error("TEST_LIMITS");
+        if (daily > total) throw new Error("TEST_DAILY_GT_TOTAL");
+        body.testTotalLimit = total;
+        body.testDailyLimit = daily;
       }
       return patchPlatformAdminClient(token, editId, body);
     },
@@ -149,6 +197,14 @@ const ClientManagement = () => {
     onError: (err: unknown) => {
       if (err instanceof Error && err.message === "NAME") {
         toast.error("Indica el nombre");
+        return;
+      }
+      if (err instanceof Error && err.message === "TEST_LIMITS") {
+        toast.error("Indica límites de prueba válidos (mayores a 0)");
+        return;
+      }
+      if (err instanceof Error && err.message === "TEST_DAILY_GT_TOTAL") {
+        toast.error("El límite diario no puede superar al total");
         return;
       }
       if (err instanceof ApiError) toast.error(err.message);
@@ -282,7 +338,20 @@ const ClientManagement = () => {
               <TableBody>
                 {(listQuery.data?.clients ?? []).map((c) => (
                   <TableRow key={c.id}>
-                    <TableCell className="font-medium">{c.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <span>{c.name}</span>
+                        {c.isTest ? (
+                          <Badge variant="outline" className="text-xs">
+                            Prueba · {c.testDailyLimit ?? 0}/día
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs">
+                            {c.dailySendLimit.toLocaleString()}/día
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       {c.mailProvider ? (
                         <Badge variant={c.mailProvider.isActive ? "secondary" : "outline"}>
@@ -365,6 +434,9 @@ const ClientManagement = () => {
                           setEditId(c.id);
                           setEditName(c.name);
                           setEditMailProviderId(c.mailProvider?.id ?? defaultProviderId);
+                          setEditIsTest(c.isTest);
+                          setEditTestTotal(c.testTotalLimit?.toString() ?? "");
+                          setEditTestDaily(c.testDailyLimit?.toString() ?? "");
                         }}
                       >
                         <Pencil className="h-4 w-4" />
@@ -435,6 +507,41 @@ const ClientManagement = () => {
                 </SelectContent>
               </Select>
             </div>
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div>
+                <Label>Cuenta de prueba</Label>
+                <p className="text-xs text-muted-foreground">
+                  Límite total y diario fijos.
+                </p>
+              </div>
+              <Switch checked={createIsTest} onCheckedChange={setCreateIsTest} />
+            </div>
+            {createIsTest && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="ctesttotal">Mensajes totales</Label>
+                  <Input
+                    id="ctesttotal"
+                    type="number"
+                    min={1}
+                    value={createTestTotal}
+                    onChange={(e) => setCreateTestTotal(e.target.value)}
+                    placeholder="Ej. 500"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="ctestdaily">Mensajes por día</Label>
+                  <Input
+                    id="ctestdaily"
+                    type="number"
+                    min={1}
+                    value={createTestDaily}
+                    onChange={(e) => setCreateTestDaily(e.target.value)}
+                    placeholder="Ej. 50"
+                  />
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>
@@ -488,6 +595,41 @@ const ClientManagement = () => {
                 </SelectContent>
               </Select>
             </div>
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div>
+                <Label>Cuenta de prueba</Label>
+                <p className="text-xs text-muted-foreground">
+                  Límite total y diario fijos.
+                </p>
+              </div>
+              <Switch checked={editIsTest} onCheckedChange={setEditIsTest} />
+            </div>
+            {editIsTest && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="etesttotal">Mensajes totales</Label>
+                  <Input
+                    id="etesttotal"
+                    type="number"
+                    min={1}
+                    value={editTestTotal}
+                    onChange={(e) => setEditTestTotal(e.target.value)}
+                    placeholder="Ej. 500"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="etestdaily">Mensajes por día</Label>
+                  <Input
+                    id="etestdaily"
+                    type="number"
+                    min={1}
+                    value={editTestDaily}
+                    onChange={(e) => setEditTestDaily(e.target.value)}
+                    placeholder="Ej. 50"
+                  />
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditId(null)}>

@@ -27,6 +27,10 @@ export type AdminClientRow = {
   name: string;
   createdAt: string;
   mailProvider: AdminClientMailProvider | null;
+  isTest: boolean;
+  testTotalLimit: number | null;
+  testDailyLimit: number | null;
+  dailySendLimit: number;
   domains: AdminClientDomain[];
 };
 
@@ -42,7 +46,14 @@ export async function fetchPlatformAdminClients(token: string) {
 
 export async function createPlatformAdminClient(
   token: string,
-  body: { name: string; initialDomain?: string; mailProviderId?: string },
+  body: {
+    name: string;
+    initialDomain?: string;
+    mailProviderId?: string;
+    isTest?: boolean;
+    testTotalLimit?: number;
+    testDailyLimit?: number;
+  },
 ) {
   return postJson<{ client: AdminClientRow }>(base, body, { token });
 }
@@ -50,7 +61,13 @@ export async function createPlatformAdminClient(
 export async function patchPlatformAdminClient(
   token: string,
   clientId: string,
-  body: { name?: string; mailProviderId?: string },
+  body: {
+    name?: string;
+    mailProviderId?: string;
+    isTest?: boolean;
+    testTotalLimit?: number;
+    testDailyLimit?: number;
+  },
 ) {
   return patchJson<{ client: AdminClientRow }>(
     `${base}/${encodeURIComponent(clientId)}`,

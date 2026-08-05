@@ -1,6 +1,14 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Send, Users, MousePointerClick, Eye, ArrowUpRight } from "lucide-react";
+import {
+  Send,
+  Users,
+  MousePointerClick,
+  Eye,
+  ArrowUpRight,
+  AlertTriangle,
+  Flag,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import StatCard from "@/components/StatCard";
 import DailyQuotaCard from "@/components/DailyQuotaCard";
@@ -24,6 +32,10 @@ import {
   fetchContactsStats,
   platformContactsStatsQueryKey,
 } from "@/lib/platformContacts";
+import {
+  fetchDashboardStats,
+  platformDashboardStatsQueryKey,
+} from "@/lib/platformDashboardStats";
 
 type ChartRow = { name: string; enviados: number; abiertos: number; clicks: number };
 
@@ -78,6 +90,12 @@ const Dashboard = () => {
     enabled: !!token,
   });
 
+  const statsQuery = useQuery({
+    queryKey: platformDashboardStatsQueryKey,
+    queryFn: () => fetchDashboardStats(token!),
+    enabled: !!token,
+  });
+
   const campaigns = data?.campaigns ?? [];
 
   const activeContactCount = contactsStatsQuery.data?.activeCount ?? 0;
@@ -100,6 +118,17 @@ const Dashboard = () => {
   }, [campaigns]);
 
   const chartData = useMemo(() => buildLastFourMonthsChart(campaigns), [campaigns]);
+
+  const hourlyChart = useMemo(() => {
+    const hourly = statsQuery.data?.hourly ?? [];
+    return {
+      categories: hourly.map((h) => `${String(h.hour).padStart(2, "0")}:00`),
+      data: hourly.map((h) => h.count),
+    };
+  }, [statsQuery.data]);
+
+  const bounceRate = statsQuery.data?.bounce.rate ?? 0;
+  const complaintRate = statsQuery.data?.complaint.rate ?? 0;
 
   const recentCampaigns = useMemo(() => {
     return [...campaigns]
@@ -138,9 +167,7 @@ const Dashboard = () => {
 
       {/* Featured: API daily quota */}
       <DailyQuotaCard
-        remaining={quotaQuery.data?.remaining ?? null}
-        limit={quotaQuery.data?.limit ?? null}
-        used={quotaQuery.data?.used ?? null}
+        quota={quotaQuery.data}
         isLoading={quotaQuery.isLoading}
         isError={quotaQuery.isError}
       />
@@ -192,6 +219,34 @@ const Dashboard = () => {
           changeType="neutral"
           icon={MousePointerClick}
           iconColor="bg-info/10 text-info"
+        />
+        <StatCard
+          title="Tasa de rebote (30d)"
+          value={
+            statsQuery.isLoading ? "…" : `${(bounceRate * 100).toFixed(2)}%`
+          }
+          change={
+            statsQuery.data
+              ? `${statsQuery.data.bounce.bounced.toLocaleString()} de ${statsQuery.data.bounce.finalized.toLocaleString()} finalizados`
+              : "Últimos 30 días"
+          }
+          changeType={bounceRate > 0.02 ? "negative" : "neutral"}
+          icon={AlertTriangle}
+          iconColor="bg-destructive/10 text-destructive"
+        />
+        <StatCard
+          title="Tasa de quejas (30d)"
+          value={
+            statsQuery.isLoading ? "…" : `${(complaintRate * 100).toFixed(3)}%`
+          }
+          change={
+            statsQuery.data
+              ? `${statsQuery.data.complaint.complaints.toLocaleString()} queja${statsQuery.data.complaint.complaints === 1 ? "" : "s"}`
+              : "Últimos 30 días"
+          }
+          changeType={complaintRate > 0.001 ? "negative" : "neutral"}
+          icon={Flag}
+          iconColor="bg-warning/10 text-warning"
         />
       </div>
 
@@ -247,6 +302,47 @@ const Dashboard = () => {
               ...baseChartOptions.legend,
               position: "top",
               horizontalAlign: "right",
+            },
+          } satisfies ApexOptions}
+        />
+      </div>
+
+      <div className="rounded-2xl border bg-card p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+          <div>
+            <h2 className="text-lg font-bold text-foreground">Mensajes por hora</h2>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Hoy (America/Lima)
+            </p>
+          </div>
+        </div>
+
+        <ApexChart
+          type="bar"
+          height={280}
+          series={[{ name: "Mensajes", data: hourlyChart.data }]}
+          options={{
+            ...baseChartOptions,
+            chart: { ...baseChartOptions.chart, type: "bar" },
+            colors: [apexPalette.primary],
+            plotOptions: {
+              bar: { borderRadius: 4, columnWidth: "60%" },
+            },
+            dataLabels: { enabled: false },
+            xaxis: {
+              ...baseChartOptions.xaxis,
+              categories: hourlyChart.categories,
+            },
+            yaxis: {
+              ...baseChartOptions.yaxis,
+              labels: {
+                ...(baseChartOptions.yaxis as { labels?: object })?.labels,
+                formatter: (v: number) => Math.round(v).toLocaleString(),
+              },
+            },
+            tooltip: {
+              ...baseChartOptions.tooltip,
+              y: { formatter: (v: number) => Math.round(v).toLocaleString() },
             },
           } satisfies ApexOptions}
         />
