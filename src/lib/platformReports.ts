@@ -4,6 +4,20 @@ import {
   shiftCalendarDateGmtMinus5,
 } from "@/lib/dateTimeGmtMinus5";
 
+export type MessageSortField =
+  | "created_at"
+  | "sent_at"
+  | "open_count"
+  | "click_count"
+  | "delivery_status";
+
+export type MessageSortDir = "asc" | "desc";
+
+export type MessageSort = {
+  field: MessageSortField;
+  dir: MessageSortDir;
+};
+
 export const platformApiMessagesReportQueryKey = (
   from: string,
   to: string,
@@ -16,6 +30,7 @@ export type ApiMessagesReportResponse = {
     opened: number;
     clicked: number;
     bounced: number;
+    complained: number;
   };
   byDay: {
     day: string;
@@ -50,6 +65,7 @@ export type ApiMessagesListFilters = {
   email?: string;
   subject?: string;
   content?: string;
+  statuses?: string[];
 };
 
 export const platformApiMessagesListQueryKey = (
@@ -58,6 +74,7 @@ export const platformApiMessagesListQueryKey = (
   page: number,
   limit: number,
   filters: ApiMessagesListFilters = {},
+  sort?: MessageSort,
 ) =>
   [
     "platform",
@@ -70,7 +87,26 @@ export const platformApiMessagesListQueryKey = (
     filters.email ?? "",
     filters.subject ?? "",
     filters.content ?? "",
+    (filters.statuses ?? []).join(","),
+    sort ? `${sort.field}:${sort.dir}` : "",
   ] as const;
+
+function applyApiMessagesFilters(
+  sp: URLSearchParams,
+  filters: ApiMessagesListFilters,
+  sort?: MessageSort,
+): void {
+  if (filters.email) sp.set("email", filters.email);
+  if (filters.subject) sp.set("subject", filters.subject);
+  if (filters.content) sp.set("content", filters.content);
+  if (filters.statuses && filters.statuses.length > 0) {
+    sp.set("statuses", filters.statuses.join(","));
+  }
+  if (sort) {
+    sp.set("sort", sort.field);
+    sp.set("dir", sort.dir);
+  }
+}
 
 export type ApiMessageListItem = {
   id: string;
@@ -101,6 +137,7 @@ export function fetchApiMessagesListPage(
   page: number,
   limit = defaultApiMessagesPageSize,
   filters: ApiMessagesListFilters = {},
+  sort?: MessageSort,
 ): Promise<ApiMessagesListResponse> {
   const sp = new URLSearchParams({
     from,
@@ -108,13 +145,22 @@ export function fetchApiMessagesListPage(
     page: String(page),
     limit: String(limit),
   });
-  if (filters.email) sp.set("email", filters.email);
-  if (filters.subject) sp.set("subject", filters.subject);
-  if (filters.content) sp.set("content", filters.content);
+  applyApiMessagesFilters(sp, filters, sort);
   return getJson<ApiMessagesListResponse>(
     `${mailingApiV1Path}/platform/reports/api-messages/list?${sp.toString()}`,
     token,
   );
+}
+
+export function buildApiMessagesExportPath(
+  from: string,
+  to: string,
+  filters: ApiMessagesListFilters = {},
+  sort?: MessageSort,
+): string {
+  const sp = new URLSearchParams({ from, to });
+  applyApiMessagesFilters(sp, filters, sort);
+  return `${mailingApiV1Path}/platform/reports/api-messages/export?${sp.toString()}`;
 }
 
 export type ApiMessagePreviewResponse = {

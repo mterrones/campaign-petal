@@ -108,6 +108,30 @@ export async function getJson<TResponse>(
   return data as TResponse;
 }
 
+export async function fetchBlob(path: string, token: string): Promise<Blob> {
+  const res = await fetch(`${getApiBaseUrl()}${path}`, {
+    headers: {
+      ...authHeaders(token),
+    },
+  });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as unknown;
+    throw new ApiError(res.status, data);
+  }
+  return res.blob();
+}
+
+export function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
 export async function deleteJson(
   path: string,
   token: string,

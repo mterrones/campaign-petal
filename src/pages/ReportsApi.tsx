@@ -6,6 +6,8 @@ import {
   MousePointerClick,
   Send,
   AlertCircle,
+  AlertTriangle,
+  Ban,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -17,7 +19,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import StatCard from "@/components/StatCard";
 import MessageTimelineDialog from "@/components/MessageTimelineDialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -32,15 +33,26 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { formatDateTimeGmtMinus5, formatChartDayLabel } from "@/lib/dateTimeGmtMinus5";
 import {
-  defaultApiMessagesPageSize,
+  buildApiMessagesExportPath,
   defaultDateRange,
   fetchApiMessagePreview,
   fetchApiMessagesListPage,
   fetchApiMessagesReport,
   platformApiMessagesListQueryKey,
   platformApiMessagesReportQueryKey,
+  type MessageSort,
 } from "@/lib/platformReports";
 import { mailingApiV1Path } from "@/lib/api";
+import DeliveryStatusBadge from "@/components/reports/DeliveryStatusBadge";
+import StatusFacetFilter from "@/components/reports/StatusFacetFilter";
+import AppliedFilterChips, {
+  type AppliedFilterChip,
+} from "@/components/reports/AppliedFilterChips";
+import PageSizeSelect from "@/components/reports/PageSizeSelect";
+import SortableHeader from "@/components/reports/SortableHeader";
+import ExportMenu from "@/components/reports/ExportMenu";
+import RateStatCard from "@/components/reports/RateStatCard";
+import { getDeliveryStatusMeta } from "@/components/reports/deliveryStatusMeta";
 import ApexChart from "@/components/charts/ApexChart";
 import { apexPalette, baseChartOptions } from "@/lib/apexTheme";
 import type { ApexOptions } from "apexcharts";
@@ -60,10 +72,12 @@ const ReportsApi = () => {
     subject: "",
     content: "",
   });
+  const [statuses, setStatuses] = useState<string[]>([]);
+  const [sort, setSort] = useState<MessageSort | undefined>(undefined);
+  const [pageSize, setPageSize] = useState(25);
   const [listPage, setListPage] = useState(1);
   const [previewMessageId, setPreviewMessageId] = useState<string | null>(null);
   const [timelineMessageId, setTimelineMessageId] = useState<string | null>(null);
-  const pageSize = defaultApiMessagesPageSize;
 
   const { data, isPending, isError, error, refetch } = useQuery({
     queryKey: platformApiMessagesReportQueryKey(applied.from, applied.to),
@@ -76,6 +90,7 @@ const ReportsApi = () => {
     email: applied.email,
     subject: applied.subject,
     content: applied.content,
+    statuses,
   };
 
   const listQuery = useQuery({
@@ -85,6 +100,7 @@ const ReportsApi = () => {
       listPage,
       pageSize,
       appliedFilters,
+      sort,
     ),
     queryFn: () =>
       fetchApiMessagesListPage(
@@ -94,6 +110,7 @@ const ReportsApi = () => {
         listPage,
         pageSize,
         appliedFilters,
+        sort,
       ),
     enabled:
       !!token && !!user?.clientId && applied.from <= applied.to,
@@ -123,9 +140,21 @@ const ReportsApi = () => {
     setApplied((prev) => ({ ...prev, email: "", subject: "", content: "" }));
   };
 
+  const statusesKey = statuses.join(",");
+  const sortKey = sort ? `${sort.field}:${sort.dir}` : "";
+
   useEffect(() => {
     setListPage(1);
-  }, [applied.from, applied.to, applied.email, applied.subject, applied.content]);
+  }, [
+    applied.from,
+    applied.to,
+    applied.email,
+    applied.subject,
+    applied.content,
+    statusesKey,
+    sortKey,
+    pageSize,
+  ]);
 
   useEffect(() => {
     const tp = listQuery.data?.totalPages;
@@ -135,6 +164,68 @@ const ReportsApi = () => {
   }, [listQuery.data?.totalPages, listPage]);
 
   const agg = data?.aggregate;
+  const percent = (numerator: number, denominator: number): string =>
+    denominator > 0 ? ((numerator / denominator) * 100).toFixed(1) : "0.0";
+
+  const exportPath = buildApiMessagesExportPath(
+    applied.from,
+    applied.to,
+    appliedFilters,
+    sort,
+  );
+
+  const filterChips: AppliedFilterChip[] = [
+    ...(applied.email
+      ? [
+          {
+            key: "email",
+            label: `Correo: ${applied.email}`,
+            onRemove: () => {
+              setEmail("");
+              setApplied((prev) => ({ ...prev, email: "" }));
+            },
+          },
+        ]
+      : []),
+    ...(applied.subject
+      ? [
+          {
+            key: "subject",
+            label: `Asunto: ${applied.subject}`,
+            onRemove: () => {
+              setSubject("");
+              setApplied((prev) => ({ ...prev, subject: "" }));
+            },
+          },
+        ]
+      : []),
+    ...(applied.content
+      ? [
+          {
+            key: "content",
+            label: `Contenido: ${applied.content}`,
+            onRemove: () => {
+              setContent("");
+              setApplied((prev) => ({ ...prev, content: "" }));
+            },
+          },
+        ]
+      : []),
+    ...statuses.map((status) => ({
+      key: `status-${status}`,
+      label: `Estado: ${getDeliveryStatusMeta(status).label}`,
+      onRemove: () => setStatuses((prev) => prev.filter((s) => s !== status)),
+    })),
+  ];
+
+  const clearAllFilters = () => {
+    setEmail("");
+    setSubject("");
+    setContent("");
+    setStatuses([]);
+    setApplied((prev) => ({ ...prev, email: "", subject: "", content: "" }));
+  };
+
   const chartData =
     data?.byDay.map((row) => ({
       name: formatChartDayLabel(row.day),
@@ -297,8 +388,23 @@ const ReportsApi = () => {
               Limpiar
             </Button>
           )}
+          <StatusFacetFilter selected={statuses} onChange={setStatuses} />
         </div>
       </div>
+
+      {user?.clientId && (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <AppliedFilterChips chips={filterChips} onClearAll={clearAllFilters} />
+          <div className="flex items-center gap-2 sm:ml-auto">
+            <PageSizeSelect value={pageSize} onChange={setPageSize} />
+            <ExportMenu
+              buildPath={() => exportPath}
+              filename={`reporte-api-${applied.from}_${applied.to}.csv`}
+              disabled={listTotal === 0}
+            />
+          </div>
+        </div>
+      )}
 
       {isPending && (
         <p className="text-muted-foreground text-sm">Cargando datos…</p>
@@ -315,25 +421,46 @@ const ReportsApi = () => {
 
       {!isPending && !isError && agg && (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <StatCard title="Total mensajes" value={agg.total.toLocaleString()} icon={Send} />
-            <StatCard
-              title="Entregados"
-              value={agg.delivered.toLocaleString()}
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            <RateStatCard
+              title="Entrega"
+              percent={`${percent(agg.delivered, agg.total)}%`}
+              detail={`${agg.delivered.toLocaleString()} de ${agg.total.toLocaleString()}`}
               icon={Send}
               iconColor="bg-success/10 text-success"
+              tooltip="Porcentaje de mensajes aceptados por el servidor destino (enviados, entregados o en cola) sobre el total."
             />
-            <StatCard
-              title="Abiertos"
-              value={agg.opened.toLocaleString()}
+            <RateStatCard
+              title="Apertura"
+              percent={`${percent(agg.opened, agg.delivered)}%`}
+              detail={`${agg.opened.toLocaleString()} de ${agg.delivered.toLocaleString()}`}
               icon={Eye}
               iconColor="bg-warning/10 text-warning"
+              tooltip="Porcentaje de mensajes entregados que fueron abiertos al menos una vez."
             />
-            <StatCard
-              title="Clicks"
-              value={agg.clicked.toLocaleString()}
+            <RateStatCard
+              title="Click"
+              percent={`${percent(agg.clicked, agg.opened)}%`}
+              detail={`${agg.clicked.toLocaleString()} de ${agg.opened.toLocaleString()}`}
               icon={MousePointerClick}
               iconColor="bg-info/10 text-info"
+              tooltip="Porcentaje de mensajes abiertos con al menos un click en un enlace."
+            />
+            <RateStatCard
+              title="Rebote"
+              percent={`${percent(agg.bounced, agg.total)}%`}
+              detail={`${agg.bounced.toLocaleString()} de ${agg.total.toLocaleString()}`}
+              icon={AlertTriangle}
+              iconColor="bg-destructive/10 text-destructive"
+              tooltip="Porcentaje de mensajes que rebotaron (no pudieron entregarse) sobre el total."
+            />
+            <RateStatCard
+              title="Queja"
+              percent={`${percent(agg.complained, agg.total)}%`}
+              detail={`${agg.complained.toLocaleString()} de ${agg.total.toLocaleString()}`}
+              icon={Ban}
+              iconColor="bg-destructive/10 text-destructive"
+              tooltip="Porcentaje de destinatarios que marcaron el mensaje como spam sobre el total."
             />
           </div>
 
@@ -399,7 +526,10 @@ const ReportsApi = () => {
                 !listQuery.isError &&
                 detailRows.length === 0 && (
                   <p className="text-sm text-muted-foreground py-6 text-center">
-                    {applied.email || applied.subject || applied.content
+                    {applied.email ||
+                    applied.subject ||
+                    applied.content ||
+                    statuses.length > 0
                       ? "No hay mensajes que coincidan con los filtros."
                       : "No hay mensajes en este rango."}
                   </p>
@@ -411,10 +541,32 @@ const ReportsApi = () => {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Destinatario</TableHead>
-                          <TableHead>Estado</TableHead>
-                          <TableHead className="text-right">Aperturas</TableHead>
-                          <TableHead className="text-right">Clicks</TableHead>
-                          <TableHead>Enviado</TableHead>
+                          <SortableHeader
+                            field="delivery_status"
+                            label="Estado"
+                            sort={sort}
+                            onSort={setSort}
+                          />
+                          <SortableHeader
+                            field="open_count"
+                            label="Aperturas"
+                            sort={sort}
+                            onSort={setSort}
+                            align="right"
+                          />
+                          <SortableHeader
+                            field="click_count"
+                            label="Clicks"
+                            sort={sort}
+                            onSort={setSort}
+                            align="right"
+                          />
+                          <SortableHeader
+                            field="sent_at"
+                            label="Enviado"
+                            sort={sort}
+                            onSort={setSort}
+                          />
                           <TableHead className="min-w-[160px]">Asunto</TableHead>
                           <TableHead className="w-[180px] text-right">Acciones</TableHead>
                         </TableRow>
@@ -425,7 +577,9 @@ const ReportsApi = () => {
                             <TableCell className="font-mono text-xs max-w-[200px] truncate" title={m.to}>
                               {m.to}
                             </TableCell>
-                            <TableCell className="text-sm">{m.deliveryStatus}</TableCell>
+                            <TableCell>
+                              <DeliveryStatusBadge status={m.deliveryStatus} />
+                            </TableCell>
                             <TableCell className="text-right text-sm">{m.openCount}</TableCell>
                             <TableCell className="text-right text-sm">{m.clickCount}</TableCell>
                             <TableCell className="text-xs text-muted-foreground whitespace-nowrap tabular-nums">

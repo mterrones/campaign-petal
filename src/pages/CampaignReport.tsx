@@ -15,26 +15,42 @@ import { useAuth } from "@/context/AuthContext";
 import { formatDateTimeGmtMinus5 } from "@/lib/dateTimeGmtMinus5";
 import { getJson, mailingApiV1Path } from "@/lib/api";
 import {
+  buildCampaignMessagesExportPath,
+  buildCampaignMessagesPath,
   type CampaignMessagesResponse,
   type CampaignOneResponse,
   platformCampaignMessagesQueryKey,
   platformCampaignQueryKey,
 } from "@/lib/platformCampaigns";
+import type { MessageSort } from "@/lib/platformReports";
+import DeliveryStatusBadge from "@/components/reports/DeliveryStatusBadge";
+import StatusFacetFilter from "@/components/reports/StatusFacetFilter";
+import AppliedFilterChips, {
+  type AppliedFilterChip,
+} from "@/components/reports/AppliedFilterChips";
+import PageSizeSelect from "@/components/reports/PageSizeSelect";
+import SortableHeader from "@/components/reports/SortableHeader";
+import ExportMenu from "@/components/reports/ExportMenu";
+import { getDeliveryStatusMeta } from "@/components/reports/deliveryStatusMeta";
 import ApexChart from "@/components/charts/ApexChart";
 import { apexPalette, baseChartOptions } from "@/lib/apexTheme";
 import type { ApexOptions } from "apexcharts";
-
-const MESSAGE_PAGE_SIZE = 50;
 
 const CampaignReport = () => {
   const { id } = useParams();
   const { token } = useAuth();
   const [messagePage, setMessagePage] = useState(1);
+  const [statuses, setStatuses] = useState<string[]>([]);
+  const [sort, setSort] = useState<MessageSort | undefined>(undefined);
+  const [pageSize, setPageSize] = useState(50);
   const [timelineMessageId, setTimelineMessageId] = useState<string | null>(null);
+
+  const statusesKey = statuses.join(",");
+  const sortKey = sort ? `${sort.field}:${sort.dir}` : "";
 
   useEffect(() => {
     setMessagePage(1);
-  }, [id]);
+  }, [id, statusesKey, sortKey, pageSize]);
 
   const campaignQuery = useQuery({
     queryKey: platformCampaignQueryKey(id),
@@ -47,17 +63,24 @@ const CampaignReport = () => {
   });
 
   const messagesQuery = useQuery({
-    queryKey: [...platformCampaignMessagesQueryKey(id), messagePage],
-    queryFn: () => {
-      const sp = new URLSearchParams({
-        page: String(messagePage),
-        pageSize: String(MESSAGE_PAGE_SIZE),
-      });
-      return getJson<CampaignMessagesResponse>(
-        `${mailingApiV1Path}/platform/campaigns/${id}/messages?${sp.toString()}`,
+    queryKey: [
+      ...platformCampaignMessagesQueryKey(id),
+      messagePage,
+      pageSize,
+      statusesKey,
+      sortKey,
+    ],
+    queryFn: () =>
+      getJson<CampaignMessagesResponse>(
+        buildCampaignMessagesPath(
+          id!,
+          messagePage,
+          pageSize,
+          { statuses },
+          sort,
+        ),
         token!,
-      );
-    },
+      ),
     enabled: !!token && !!id && !!campaignQuery.data?.campaign,
   });
 
@@ -105,12 +128,17 @@ const CampaignReport = () => {
   const pagedMessages = messagesPayload?.messages ?? [];
   const messagesTotal = messagesPayload?.total ?? 0;
   const currentPage = messagesPayload?.page ?? messagePage;
-  const pageSize = messagesPayload?.pageSize ?? MESSAGE_PAGE_SIZE;
   const totalPages =
     messagesTotal === 0 ? 1 : Math.ceil(messagesTotal / pageSize);
   const rangeFrom =
     messagesTotal === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const rangeTo = Math.min(currentPage * pageSize, messagesTotal);
+
+  const filterChips: AppliedFilterChip[] = statuses.map((status) => ({
+    key: `status-${status}`,
+    label: `Estado: ${getDeliveryStatusMeta(status).label}`,
+    onRemove: () => setStatuses((prev) => prev.filter((s) => s !== status)),
+  }));
 
   if (campaignQuery.isPending) {
     return (
@@ -284,7 +312,28 @@ const CampaignReport = () => {
       </div>
 
       <div className="stat-card">
-        <h3 className="font-semibold mb-4">Mensajes enviados</h3>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h3 className="font-semibold">Mensajes enviados</h3>
+          <div className="flex items-center gap-2">
+            <StatusFacetFilter selected={statuses} onChange={setStatuses} />
+            <PageSizeSelect value={pageSize} onChange={setPageSize} />
+            <ExportMenu
+              buildPath={() =>
+                buildCampaignMessagesExportPath(id!, { statuses }, sort)
+              }
+              filename={`reporte-campana-${id}.csv`}
+              disabled={messagesTotal === 0}
+            />
+          </div>
+        </div>
+        {filterChips.length > 0 && (
+          <div className="mb-4">
+            <AppliedFilterChips
+              chips={filterChips}
+              onClearAll={() => setStatuses([])}
+            />
+          </div>
+        )}
         {messagesQuery.isError && (
           <p className="text-destructive text-sm mb-4">No se pudieron cargar los mensajes.</p>
         )}
@@ -293,10 +342,32 @@ const CampaignReport = () => {
             <TableHeader>
               <TableRow>
                 <TableHead>Destinatario</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="text-right">Aperturas</TableHead>
-                <TableHead className="text-right">Clicks</TableHead>
-                <TableHead>Enviado</TableHead>
+                <SortableHeader
+                  field="delivery_status"
+                  label="Estado"
+                  sort={sort}
+                  onSort={setSort}
+                />
+                <SortableHeader
+                  field="open_count"
+                  label="Aperturas"
+                  sort={sort}
+                  onSort={setSort}
+                  align="right"
+                />
+                <SortableHeader
+                  field="click_count"
+                  label="Clicks"
+                  sort={sort}
+                  onSort={setSort}
+                  align="right"
+                />
+                <SortableHeader
+                  field="sent_at"
+                  label="Enviado"
+                  sort={sort}
+                  onSort={setSort}
+                />
                 <TableHead className="w-[110px] text-right">Tiempos</TableHead>
               </TableRow>
             </TableHeader>
@@ -317,7 +388,9 @@ const CampaignReport = () => {
                 pagedMessages.map((m) => (
                   <TableRow key={m.id}>
                     <TableCell className="font-mono text-xs max-w-[200px] truncate">{m.to}</TableCell>
-                    <TableCell className="text-sm">{m.deliveryStatus}</TableCell>
+                    <TableCell>
+                      <DeliveryStatusBadge status={m.deliveryStatus} />
+                    </TableCell>
                     <TableCell className="text-right text-sm">{m.openCount}</TableCell>
                     <TableCell className="text-right text-sm">{m.clickCount}</TableCell>
                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap tabular-nums">

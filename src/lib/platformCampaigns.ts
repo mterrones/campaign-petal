@@ -51,6 +51,53 @@ export type CampaignMessagesResponse = {
   pageSize?: number;
 };
 
+import { mailingApiV1Path } from "@/lib/api";
+import type { MessageSort } from "@/lib/platformReports";
+
+export type CampaignMessagesFilters = {
+  statuses?: string[];
+};
+
+function applyCampaignMessagesFilters(
+  sp: URLSearchParams,
+  filters: CampaignMessagesFilters,
+  sort?: MessageSort,
+): void {
+  if (filters.statuses && filters.statuses.length > 0) {
+    sp.set("statuses", filters.statuses.join(","));
+  }
+  if (sort) {
+    sp.set("sort", sort.field);
+    sp.set("dir", sort.dir);
+  }
+}
+
+export function buildCampaignMessagesPath(
+  id: string,
+  page: number,
+  pageSize: number,
+  filters: CampaignMessagesFilters = {},
+  sort?: MessageSort,
+): string {
+  const sp = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize),
+  });
+  applyCampaignMessagesFilters(sp, filters, sort);
+  return `${mailingApiV1Path}/platform/campaigns/${id}/messages?${sp.toString()}`;
+}
+
+export function buildCampaignMessagesExportPath(
+  id: string,
+  filters: CampaignMessagesFilters = {},
+  sort?: MessageSort,
+): string {
+  const sp = new URLSearchParams();
+  applyCampaignMessagesFilters(sp, filters, sort);
+  const query = sp.toString();
+  return `${mailingApiV1Path}/platform/campaigns/${id}/messages/export${query ? `?${query}` : ""}`;
+}
+
 export const platformCampaignsQueryKey = ["platform-campaigns"] as const;
 
 export function platformCampaignQueryKey(id: string | undefined) {
