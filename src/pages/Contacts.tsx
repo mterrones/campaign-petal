@@ -27,6 +27,7 @@ import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { ApiError } from "@/lib/api";
+import { formatDateTimeGmtMinus5 } from "@/lib/dateTimeGmtMinus5";
 import type { PlatformContact } from "@/lib/platformContacts";
 import {
   addEmailSuppression,
@@ -484,14 +485,6 @@ const Contacts = () => {
     importBatchMutation.mutate();
   };
 
-  const formatCreated = (iso: string) => {
-    try {
-      return new Date(iso).toISOString().slice(0, 10);
-    } catch {
-      return iso;
-    }
-  };
-
   const findDirName = (c: PlatformContact) =>
     sidebarDirs.find((d) => d.id === c.directoryId)?.name ?? c.directoryId;
 
@@ -622,7 +615,7 @@ const Contacts = () => {
                       >
                         <div className="min-w-0">
                           <p className="font-medium text-sm truncate">{row.email}</p>
-                          <p className="text-xs text-muted-foreground">{formatCreated(row.createdAt)}</p>
+                          <p className="text-xs text-muted-foreground">{formatDateTimeGmtMinus5(row.createdAt)}</p>
                         </div>
                         <Button
                           variant="outline"
@@ -659,7 +652,7 @@ const Contacts = () => {
                           <TableRow key={row.email}>
                             <TableCell className="font-medium">{row.email}</TableCell>
                             <TableCell className="text-sm text-muted-foreground">
-                              {formatCreated(row.createdAt)}
+                              {formatDateTimeGmtMinus5(row.createdAt)}
                             </TableCell>
                             <TableCell className="text-right">
                               <Button
@@ -896,7 +889,7 @@ const Contacts = () => {
                             {statusMap[c.status]?.label}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{formatCreated(c.createdAt)}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{formatDateTimeGmtMinus5(c.createdAt)}</TableCell>
                         <TableCell>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>

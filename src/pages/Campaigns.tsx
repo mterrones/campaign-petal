@@ -16,6 +16,7 @@ import {
   type CampaignsListResponse,
   platformCampaignsQueryKey,
 } from "@/lib/platformCampaigns";
+import { formatDateTimeGmtMinus5 } from "@/lib/dateTimeGmtMinus5";
 
 const Campaigns = () => {
   const navigate = useNavigate();
@@ -95,7 +96,7 @@ const Campaigns = () => {
                   <div><span className="block text-foreground font-semibold">{c.opened.toLocaleString()}</span>Abiertos</div>
                   <div><span className="block text-foreground font-semibold">{c.clicked.toLocaleString()}</span>Clicks</div>
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">{c.sentAt || c.scheduledAt || c.createdAt}</p>
+                <p className="text-xs text-muted-foreground mt-2">{formatDateTimeGmtMinus5(c.sentAt || c.scheduledAt || c.createdAt)}</p>
               </Link>
             ))}
           </div>
@@ -131,7 +132,7 @@ const Campaigns = () => {
                     <TableCell className="text-right text-sm">{c.clicked.toLocaleString()}</TableCell>
                     <TableCell className="text-right text-sm">{c.bounced.toLocaleString()}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {c.sentAt || c.scheduledAt || c.createdAt}
+                      {formatDateTimeGmtMinus5(c.sentAt || c.scheduledAt || c.createdAt)}
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>

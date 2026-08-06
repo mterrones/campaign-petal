@@ -13,6 +13,7 @@ import {
 import ApexChart from "@/components/charts/ApexChart";
 import { apexPalette, baseChartOptions } from "@/lib/apexTheme";
 import type { ApexOptions } from "apexcharts";
+import { formatDateTimeGmtMinus5 } from "@/lib/dateTimeGmtMinus5";
 
 const Reports = () => {
   const { token } = useAuth();
@@ -145,7 +146,7 @@ const Reports = () => {
                       <CampaignStatusBadge status={c.status} />
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      {c.sentAt || c.scheduledAt || c.createdAt}
+                      {formatDateTimeGmtMinus5(c.sentAt || c.scheduledAt || c.createdAt)}
                     </span>
                   </div>
                   <div className="grid grid-cols-4 gap-4 text-xs">

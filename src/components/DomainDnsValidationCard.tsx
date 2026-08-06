@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { ApiError } from "@/lib/api";
+import { formatDateTimeGmtMinus5 } from "@/lib/dateTimeGmtMinus5";
 import {
   fetchDomainDnsAuth,
   type DnsAuthCheck,
@@ -112,7 +113,7 @@ export function DomainDnsValidationCard({ domain, token }: DomainDnsValidationCa
       {report && report.domain === domain && (
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground">
-            Consultado: {new Date(report.checkedAt).toLocaleString()}
+            Consultado: {formatDateTimeGmtMinus5(report.checkedAt)}
           </p>
           <div className="overflow-x-auto">
           <Table>

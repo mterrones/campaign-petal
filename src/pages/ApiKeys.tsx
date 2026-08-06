@@ -31,6 +31,7 @@ import {
 } from "@/lib/api";
 import { downloadApiDocumentationPdf } from "@/lib/downloadApiDocsPdf";
 import { ApiKeyMessagesDocs } from "@/components/ApiKeysDocsPanels";
+import { formatDateTimeGmtMinus5 } from "@/lib/dateTimeGmtMinus5";
 import {
   Key,
   Copy,
@@ -313,14 +314,6 @@ const ApiKeys = () => {
                   )}
                   {keysQuery.data?.map((k) => {
                     const active = k.revokedAt === null;
-                    const created = new Date(k.createdAt).toLocaleDateString(
-                      "es-PE",
-                      {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                      },
-                    );
                     return (
                       <div
                         key={k.id}
@@ -345,7 +338,10 @@ const ApiKeys = () => {
                             </span>
                           </code>
                           <p className="text-xs text-muted-foreground">
-                            Creada: {created}
+                            Creada: {formatDateTimeGmtMinus5(k.createdAt)}
+                            {!active && k.revokedAt
+                              ? ` · Revocada: ${formatDateTimeGmtMinus5(k.revokedAt)}`
+                              : ""}
                           </p>
                         </div>
                         {active && (

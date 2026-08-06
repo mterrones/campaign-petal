@@ -14,8 +14,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import type { DailySendQuotaResponse } from "@/lib/platformDailyQuota";
-
-const LIMA_TZ = "America/Lima";
+import { GMT_MINUS_5_ZONE } from "@/lib/dateTimeGmtMinus5";
 
 function msSinceMidnightInZone(now: Date, timeZone: string): number {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -98,7 +97,7 @@ const DailyQuotaCard = ({ quota, isLoading, isError }: DailyQuotaCardProps) => {
   }, []);
 
   const resetInLabel = formatDurationUntilReset(
-    msUntilNextMidnightInZone(now, LIMA_TZ),
+    msUntilNextMidnightInZone(now, GMT_MINUS_5_ZONE),
   );
 
   const remaining = quota?.remaining ?? null;

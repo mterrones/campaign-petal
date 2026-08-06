@@ -1,4 +1,8 @@
 import { getJson, mailingApiV1Path } from "@/lib/api";
+import {
+  calendarDateGmtMinus5,
+  shiftCalendarDateGmtMinus5,
+} from "@/lib/dateTimeGmtMinus5";
 
 export const platformApiMessagesReportQueryKey = (
   from: string,
@@ -37,13 +41,9 @@ export function fetchApiMessagesReport(
 }
 
 export function defaultDateRange(days: number): { from: string; to: string } {
-  const to = new Date();
-  const from = new Date(to);
-  from.setUTCDate(from.getUTCDate() - days);
-  return {
-    from: from.toISOString().slice(0, 10),
-    to: to.toISOString().slice(0, 10),
-  };
+  const to = calendarDateGmtMinus5();
+  const from = shiftCalendarDateGmtMinus5(to, -days);
+  return { from, to };
 }
 
 export type ApiMessagesListFilters = {
@@ -137,6 +137,8 @@ export type MessageTimelineResponse = {
   requestReceivedAt: string;
   sentAt: string | null;
   deliveredAt: string | null;
+  bouncedAt: string | null;
+  failedAt: string | null;
   firstOpenedAt: string | null;
   deliveryStatus: string;
 };

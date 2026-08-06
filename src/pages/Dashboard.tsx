@@ -312,7 +312,7 @@ const Dashboard = () => {
           <div>
             <h2 className="text-lg font-bold text-foreground">Mensajes por hora</h2>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Hoy (America/Lima)
+              Hoy (GMT-5)
             </p>
           </div>
         </div>

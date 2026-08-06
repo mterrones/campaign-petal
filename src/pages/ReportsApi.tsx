@@ -30,7 +30,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAuth } from "@/context/AuthContext";
-import { formatDateTimeGmtMinus5 } from "@/lib/dateTimeGmtMinus5";
+import { formatDateTimeGmtMinus5, formatChartDayLabel } from "@/lib/dateTimeGmtMinus5";
 import {
   defaultApiMessagesPageSize,
   defaultDateRange,
@@ -137,7 +137,7 @@ const ReportsApi = () => {
   const agg = data?.aggregate;
   const chartData =
     data?.byDay.map((row) => ({
-      name: row.day.slice(5),
+      name: formatChartDayLabel(row.day),
       Enviados: row.total,
       Entregados: row.delivered,
       Abiertos: row.opened,
@@ -340,7 +340,7 @@ const ReportsApi = () => {
           <div className="stat-card">
             <h3 className="font-semibold mb-4 flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-muted-foreground" />
-              Actividad por día (UTC)
+              Actividad por día (GMT-5)
             </h3>
             {chartData.length === 0 ? (
               <p className="text-sm text-muted-foreground py-8 text-center">
