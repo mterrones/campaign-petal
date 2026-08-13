@@ -368,7 +368,7 @@ const CampaignReport = () => {
                   sort={sort}
                   onSort={setSort}
                 />
-                <TableHead className="w-[110px] text-right">Tiempos</TableHead>
+                <TableHead className="w-[110px] text-right">Detalle</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -389,7 +389,10 @@ const CampaignReport = () => {
                   <TableRow key={m.id}>
                     <TableCell className="font-mono text-xs max-w-[200px] truncate">{m.to}</TableCell>
                     <TableCell>
-                      <DeliveryStatusBadge status={m.deliveryStatus} />
+                      <DeliveryStatusBadge
+                        status={m.deliveryStatus}
+                        reason={m.errorDetail}
+                      />
                     </TableCell>
                     <TableCell className="text-right text-sm">{m.openCount}</TableCell>
                     <TableCell className="text-right text-sm">{m.clickCount}</TableCell>
@@ -405,7 +408,7 @@ const CampaignReport = () => {
                         onClick={() => setTimelineMessageId(m.id)}
                       >
                         <Clock className="w-4 h-4" />
-                        Tiempos
+                        Detalle
                       </Button>
                     </TableCell>
                   </TableRow>

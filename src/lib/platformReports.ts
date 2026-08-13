@@ -117,6 +117,8 @@ export type ApiMessageListItem = {
   createdAt: string;
   openCount: number;
   clickCount: number;
+  errorCode: string | null;
+  errorDetail: string | null;
 };
 
 export type ApiMessagesListResponse = {
@@ -187,6 +189,14 @@ export type MessageTimelineResponse = {
   failedAt: string | null;
   firstOpenedAt: string | null;
   deliveryStatus: string;
+  toAddress: string;
+  subject: string;
+  errorCode: string | null;
+  errorDetail: string | null;
+  htmlBody: string | null;
+  textBody: string | null;
+  cc: string[];
+  bcc: string[];
 };
 
 export const messageTimelineQueryKey = (messageId: string | null) =>

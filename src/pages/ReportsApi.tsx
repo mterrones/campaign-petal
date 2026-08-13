@@ -12,13 +12,6 @@ import {
   ChevronRight,
   Clock,
 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import MessageTimelineDialog from "@/components/MessageTimelineDialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -35,7 +28,6 @@ import { formatDateTimeGmtMinus5, formatChartDayLabel } from "@/lib/dateTimeGmtM
 import {
   buildApiMessagesExportPath,
   defaultDateRange,
-  fetchApiMessagePreview,
   fetchApiMessagesListPage,
   fetchApiMessagesReport,
   platformApiMessagesListQueryKey,
@@ -76,7 +68,6 @@ const ReportsApi = () => {
   const [sort, setSort] = useState<MessageSort | undefined>(undefined);
   const [pageSize, setPageSize] = useState(25);
   const [listPage, setListPage] = useState(1);
-  const [previewMessageId, setPreviewMessageId] = useState<string | null>(null);
   const [timelineMessageId, setTimelineMessageId] = useState<string | null>(null);
 
   const { data, isPending, isError, error, refetch } = useQuery({
@@ -114,12 +105,6 @@ const ReportsApi = () => {
       ),
     enabled:
       !!token && !!user?.clientId && applied.from <= applied.to,
-  });
-
-  const previewQuery = useQuery({
-    queryKey: ["platform", "reports", "api-message-preview", previewMessageId],
-    queryFn: () => fetchApiMessagePreview(token!, previewMessageId!),
-    enabled: !!token && !!previewMessageId,
   });
 
   const applyFilters = () => {
@@ -245,54 +230,6 @@ const ReportsApi = () => {
 
   return (
     <div className="space-y-6">
-      <Dialog
-        open={previewMessageId != null}
-        onOpenChange={(open) => {
-          if (!open) setPreviewMessageId(null);
-        }}
-      >
-        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col gap-0 p-0 overflow-hidden">
-          <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
-            <DialogTitle className="pr-8 leading-snug">
-              {previewQuery.data?.subject?.trim() || "Correo enviado"}
-            </DialogTitle>
-            <DialogDescription className="sr-only">
-              Vista previa del contenido enviado por API para este destinatario.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="px-6 pb-6 min-h-0 flex-1 flex flex-col overflow-hidden">
-            {previewQuery.isPending && (
-              <p className="text-sm text-muted-foreground py-8 text-center">Cargando contenido…</p>
-            )}
-            {previewQuery.isError && (
-              <p className="text-sm text-destructive py-8 text-center">
-                No se pudo cargar el correo.
-              </p>
-            )}
-            {previewQuery.data && !previewQuery.isPending && (
-              <div className="rounded-md border bg-muted/20 overflow-hidden flex-1 min-h-[min(420px,50vh)] flex flex-col">
-                {previewQuery.data.htmlBody ? (
-                  <iframe
-                    title="Vista previa del correo"
-                    sandbox=""
-                    srcDoc={previewQuery.data.htmlBody}
-                    className="w-full flex-1 min-h-[360px] border-0 bg-background"
-                  />
-                ) : previewQuery.data.textBody ? (
-                  <pre className="p-4 text-sm whitespace-pre-wrap font-sans overflow-auto flex-1">
-                    {previewQuery.data.textBody}
-                  </pre>
-                ) : (
-                  <p className="p-6 text-sm text-muted-foreground text-center">
-                    No hay cuerpo HTML ni texto guardado para este envío.
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
       <MessageTimelineDialog
         messageId={timelineMessageId}
         open={timelineMessageId != null}
@@ -578,7 +515,10 @@ const ReportsApi = () => {
                               {m.to}
                             </TableCell>
                             <TableCell>
-                              <DeliveryStatusBadge status={m.deliveryStatus} />
+                              <DeliveryStatusBadge
+                                status={m.deliveryStatus}
+                                reason={m.errorDetail}
+                              />
                             </TableCell>
                             <TableCell className="text-right text-sm">{m.openCount}</TableCell>
                             <TableCell className="text-right text-sm">{m.clickCount}</TableCell>
@@ -589,28 +529,16 @@ const ReportsApi = () => {
                               {m.subject || "—"}
                             </TableCell>
                             <TableCell className="text-right">
-                              <div className="flex items-center justify-end gap-1">
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="gap-1"
-                                  onClick={() => setPreviewMessageId(m.id)}
-                                >
-                                  <Eye className="w-4 h-4" />
-                                  Ver
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="gap-1"
-                                  onClick={() => setTimelineMessageId(m.id)}
-                                >
-                                  <Clock className="w-4 h-4" />
-                                  Tiempos
-                                </Button>
-                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="gap-1"
+                                onClick={() => setTimelineMessageId(m.id)}
+                              >
+                                <Clock className="w-4 h-4" />
+                                Detalle
+                              </Button>
                             </TableCell>
                           </TableRow>
                         ))}
