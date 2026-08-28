@@ -62,7 +62,7 @@ export async function downloadApiDocumentationPdf(
 <body>
   <div class="doc-header">
     <h1>Enviamas - Maillings API's</h1>
-    <p>API Key · POST y GET ${mailingApiV1Path}/messages</p>
+    <p>API Key · POST y GET ${mailingApiV1Path}/messages · Gateway (api.sl) y API (api.mailling)</p>
   </div>
   <h2>Mensajes (API Key)</h2>
   ${apiKeyHtml}

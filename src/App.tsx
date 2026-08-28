@@ -23,6 +23,7 @@ import NotFound from "./pages/NotFound";
 import AdminUsers from "./pages/AdminUsers";
 import ClientManagement from "./pages/ClientManagement";
 import MailProviderManagement from "./pages/MailProviderManagement";
+import AdminQueues from "./pages/AdminQueues";
 
 const queryClient = new QueryClient();
 
@@ -55,6 +56,7 @@ const App = () => (
                 <Route path="/admin/users" element={<AdminUsers />} />
                 <Route path="/admin/clients" element={<ClientManagement />} />
                 <Route path="/admin/mail-providers" element={<MailProviderManagement />} />
+                <Route path="/admin/queues" element={<AdminQueues />} />
                 <Route path="*" element={<NotFound />} />
                 </Route>
               </Route>

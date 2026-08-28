@@ -196,6 +196,12 @@ const AppSidebar = () => {
       exact: true,
     },
     {
+      to: "/admin/queues",
+      icon: Activity,
+      label: "Colas",
+      exact: true,
+    },
+    {
       to: "/admin/mail-providers",
       icon: Mail,
       label: "Proveedores de correo",

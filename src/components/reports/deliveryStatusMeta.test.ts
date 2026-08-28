@@ -3,9 +3,14 @@ import { getDeliveryStatusMeta } from "./deliveryStatusMeta";
 
 describe("getDeliveryStatusMeta", () => {
   it("returns label and tone for known statuses", () => {
+    expect(getDeliveryStatusMeta("sent")).toEqual({
+      value: "sent",
+      label: "Enviado (SMTP)",
+      tone: "info",
+    });
     expect(getDeliveryStatusMeta("delivered")).toEqual({
       value: "delivered",
-      label: "Entregado",
+      label: "Entregado (destino)",
       tone: "success",
     });
     expect(getDeliveryStatusMeta("bounced")).toEqual({

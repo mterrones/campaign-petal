@@ -23,6 +23,14 @@ export function getApiBaseUrl(): string {
   return "http://localhost:3000";
 }
 
+export function getGatewayApiBaseUrl(): string {
+  const raw = import.meta.env.VITE_GATEWAY_API_BASE_URL;
+  if (raw !== undefined && String(raw).trim() !== "") {
+    return String(raw).replace(/\/$/, "");
+  }
+  return "https://api.sl.mailling.enviamas.pe";
+}
+
 export function getStoredToken(): string | null {
   return localStorage.getItem(TOKEN_STORAGE_KEY);
 }

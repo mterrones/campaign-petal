@@ -11,7 +11,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Send, Inbox, Code2, Copy } from "lucide-react";
-import { getApiBaseUrl, mailingApiV1Path } from "@/lib/api";
+import { getApiBaseUrl, getGatewayApiBaseUrl, mailingApiV1Path } from "@/lib/api";
 
 type ApiKeyDocsProps = {
   copyToClipboard: (text: string) => void;
@@ -22,39 +22,84 @@ function AuthApiKeyDocsDescription() {
     <span className="block space-y-2">
       <span className="block">
         Autenticación por API Key:{" "}
-        <code className="bg-muted px-1 rounded">{"--header 'x-api-key: {api key}'"}</code>
+        <code className="bg-muted px-1 rounded">{"--header 'x-api-key: mek_…'"}</code>
       </span>
-      <span className="block">
-        o Autenticación Basic Auth{" "}
-        <code className="bg-muted px-1 rounded break-all">
-          {"--header 'authorization: Basic ZGFzZDpzYWRhc2Rhc2Q='"}
-        </code>
+      <span className="block text-muted-foreground">
+        En el gateway (<code className="bg-muted px-1 rounded">api.sl</code>) solo{" "}
+        <code className="bg-muted px-1 rounded">x-api-key</code>. Basic Auth: usar{" "}
+        <code className="bg-muted px-1 rounded">api.mailling</code> directo.
       </span>
     </span>
+  );
+}
+
+function EndpointUrlRow({
+  method,
+  label,
+  url,
+  copyToClipboard,
+}: {
+  method: string;
+  label: string;
+  url: string;
+  copyToClipboard: (text: string) => void;
+}) {
+  return (
+    <div className="flex items-start gap-2 mt-1.5 flex-wrap">
+      <Badge className="bg-primary/10 text-primary border-primary/20 font-mono text-[10px] shrink-0">
+        {method}
+      </Badge>
+      <span className="text-[10px] uppercase tracking-wide text-muted-foreground shrink-0 pt-0.5 w-[68px]">
+        {label}
+      </span>
+      <code className="text-xs bg-muted px-2 py-1 rounded break-all flex-1 min-w-0">{url}</code>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-7 w-7 shrink-0"
+        onClick={() => copyToClipboard(url)}
+      >
+        <Copy className="w-3.5 h-3.5" />
+      </Button>
+    </div>
   );
 }
 
 export const ApiKeyMessagesDocs = forwardRef<HTMLDivElement, ApiKeyDocsProps>(
   function ApiKeyMessagesDocs({ copyToClipboard }, ref) {
     const apiBase = getApiBaseUrl();
-    const postUrl = `${apiBase}${mailingApiV1Path}/messages`;
-    const getUrl = `${apiBase}${mailingApiV1Path}/messages/<id>`;
-    const curlPost = `curl -X POST "${postUrl}" \\
+    const gatewayBase = getGatewayApiBaseUrl();
+    const postPath = `${mailingApiV1Path}/messages`;
+    const getPath = `${mailingApiV1Path}/messages/<id>`;
+    const postGatewayUrl = `${gatewayBase}${postPath}`;
+    const postApiUrl = `${apiBase}${postPath}`;
+    const getGatewayUrl = `${gatewayBase}${getPath}`;
+    const getApiUrl = `${apiBase}${getPath}`;
+    const curlPost = `curl -X POST "${postGatewayUrl}" \\
   -H "Content-Type: application/json" \\
   --header 'x-api-key: mek_YOUR_KEY' \\
   -d '{"to":"dest@example.com","subject":"Hola","html":"<p>Texto</p>"}'`;
 
     return (
       <div ref={ref} className="space-y-4">
-        <p className="text-xs text-muted-foreground">
-          Base: <code className="bg-muted px-1 rounded">{apiBase}</code>
+        <p className="text-xs text-muted-foreground space-y-1">
+          <span className="block font-medium text-foreground">Endpoints disponibles</span>
+          <span className="block">
+            Gateway (recomendado, cola AWS):{" "}
+            <code className="bg-muted px-1 rounded">{gatewayBase}</code>
+          </span>
+          <span className="block">
+            API (directo, sin cola AWS):{" "}
+            <code className="bg-muted px-1 rounded">{apiBase}</code>
+          </span>
         </p>
 
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base font-semibold">
               <Send className="w-5 h-5 text-primary shrink-0" />
-              POST {`${mailingApiV1Path}/messages`}
+              POST {postPath}
             </CardTitle>
             <CardDescription className="text-xs leading-relaxed">
               <AuthApiKeyDocsDescription />
@@ -63,23 +108,20 @@ export const ApiKeyMessagesDocs = forwardRef<HTMLDivElement, ApiKeyDocsProps>(
           <CardContent className="space-y-4 pt-0">
             <div>
               <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                URL
+                URLs
               </Label>
-              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                <Badge className="bg-primary/10 text-primary border-primary/20 font-mono text-[10px]">
-                  POST
-                </Badge>
-                <code className="text-xs bg-muted px-2 py-1 rounded break-all">{postUrl}</code>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 shrink-0"
-                  onClick={() => copyToClipboard(postUrl)}
-                >
-                  <Copy className="w-3.5 h-3.5" />
-                </Button>
-              </div>
+              <EndpointUrlRow
+                method="POST"
+                label="Gateway"
+                url={postGatewayUrl}
+                copyToClipboard={copyToClipboard}
+              />
+              <EndpointUrlRow
+                method="POST"
+                label="API"
+                url={postApiUrl}
+                copyToClipboard={copyToClipboard}
+              />
             </div>
 
             <div>
@@ -229,21 +271,35 @@ export const ApiKeyMessagesDocs = forwardRef<HTMLDivElement, ApiKeyDocsProps>(
           <CardContent className="space-y-4 pt-0">
             <div>
               <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                URL
+                URLs
               </Label>
-              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                <Badge className="bg-primary/10 text-primary border-primary/20 font-mono text-[10px]">
-                  GET
-                </Badge>
-                <code className="text-xs bg-muted px-2 py-1 rounded break-all">{getUrl}</code>
-              </div>
+              <EndpointUrlRow
+                method="GET"
+                label="Gateway"
+                url={getGatewayUrl}
+                copyToClipboard={copyToClipboard}
+              />
+              <EndpointUrlRow
+                method="GET"
+                label="API"
+                url={getApiUrl}
+                copyToClipboard={copyToClipboard}
+              />
             </div>
 
             <div>
               <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Respuesta
               </Label>
-              <p className="text-[11px] text-muted-foreground mt-1"><strong>200</strong> — estado actual. En cola: <code className="bg-muted px-1 rounded">deliveryStatus: &quot;enqueued&quot;</code>.</p>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                <strong>200</strong> — estado actual. En cola:{" "}
+                <code className="bg-muted px-1 rounded">deliveryStatus: &quot;enqueued&quot;</code>.
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-2">
+                Tras <strong>202</strong> en <code className="bg-muted px-1 rounded">api.sl</code>,
+                haga poll cada 1–2 s. <strong>404</strong> temporal = aceptado, aún en cola del
+                gateway; siga consultando hasta <strong>200</strong>.
+              </p>
               <pre className="bg-muted rounded-lg p-3 mt-2 text-[11px] overflow-x-auto leading-snug">
 {`{
   "id": "<uuid>",
@@ -274,7 +330,7 @@ export const ApiKeyMessagesDocs = forwardRef<HTMLDivElement, ApiKeyDocsProps>(
                 cURL
               </Label>
               <pre className="bg-muted rounded-lg p-3 mt-2 text-[11px] overflow-x-auto leading-snug">
-{`curl "${apiBase}${mailingApiV1Path}/messages/<UUID>" \\
+{`curl "${gatewayBase}${mailingApiV1Path}/messages/<UUID>" \\
   --header 'x-api-key: mek_YOUR_KEY'`}
               </pre>
             </div>
