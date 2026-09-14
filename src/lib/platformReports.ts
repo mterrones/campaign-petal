@@ -197,6 +197,11 @@ export type MessageTimelineResponse = {
   textBody: string | null;
   cc: string[];
   bcc: string[];
+  processLog: {
+    at: string;
+    step: string;
+    detail: string | null;
+  }[] | null;
 };
 
 export const messageTimelineQueryKey = (messageId: string | null) =>

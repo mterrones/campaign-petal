@@ -17,6 +17,7 @@ import ReportsApi from "./pages/ReportsApi";
 import CampaignReport from "./pages/CampaignReport";
 import DomainSettings from "./pages/DomainSettings";
 import ApiKeys from "./pages/ApiKeys";
+import ApiVsApiSl from "./pages/ApiVsApiSl";
 import Templates from "./pages/Templates";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
@@ -53,6 +54,7 @@ const App = () => (
                 <Route path="/reports/api" element={<ReportsApi />} />
                 <Route path="/settings" element={<DomainSettings />} />
                 <Route path="/api-keys" element={<ApiKeys />} />
+                <Route path="/api-keys/api-vs-api-sl" element={<ApiVsApiSl />} />
                 <Route path="/admin/users" element={<AdminUsers />} />
                 <Route path="/admin/clients" element={<ClientManagement />} />
                 <Route path="/admin/mail-providers" element={<MailProviderManagement />} />

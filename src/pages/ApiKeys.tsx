@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +12,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
@@ -31,6 +31,8 @@ import {
 } from "@/lib/api";
 import { downloadApiDocumentationPdf } from "@/lib/downloadApiDocsPdf";
 import { ApiKeyMessagesDocs } from "@/components/ApiKeysDocsPanels";
+import { ClientWebhooksManager } from "@/components/ClientWebhooksManager";
+import { createPlatformClientWebhooksApi } from "@/lib/platformClientWebhooks";
 import { formatDateTimeGmtMinus5 } from "@/lib/dateTimeGmtMinus5";
 import {
   Key,
@@ -40,6 +42,7 @@ import {
   Send,
   FileDown,
   Loader2,
+  Webhook,
 } from "lucide-react";
 
 type ApiKeyRow = {
@@ -61,11 +64,25 @@ const MASKED_KEY_DISPLAY = "mek_••••••••••••••••
 const ApiKeys = () => {
   const { token, user } = useAuth();
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
   const [newKeyName, setNewKeyName] = useState("");
   const [createdKeyPlain, setCreatedKeyPlain] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("keys");
   const [pdfLoading, setPdfLoading] = useState(false);
   const apiKeyDocRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "api-key" || tab === "keys" || tab === "webhooks") {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
+
+  const webhooksApi = useMemo(
+    () => (token ? createPlatformClientWebhooksApi(token) : null),
+    [token],
+  );
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast.success("Copiado al portapapeles");
@@ -161,7 +178,7 @@ const ApiKeys = () => {
       <div>
         <h1 className="text-2xl font-bold">API Keys & Documentación</h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          Gestión de claves y referencia de la API de mensajes (API Key).
+          Claves, webhooks de estado y documentación de la API.
         </p>
       </div>
 
@@ -172,9 +189,13 @@ const ApiKeys = () => {
               <Key className="w-3.5 h-3.5 mr-1.5" />
               API Keys
             </TabsTrigger>
+            <TabsTrigger value="webhooks">
+              <Webhook className="w-3.5 h-3.5 mr-1.5" />
+              Webhooks
+            </TabsTrigger>
             <TabsTrigger value="api-key">
               <Send className="w-3.5 h-3.5 mr-1.5" />
-              Mensajes (API Key)
+              Documentación
             </TabsTrigger>
           </TabsList>
           {activeTab === "api-key" && (
@@ -365,12 +386,44 @@ const ApiKeys = () => {
           )}
         </TabsContent>
 
+        <TabsContent value="webhooks" className="space-y-4">
+          {noOrg && (
+            <Card className="border-amber-500/30 bg-amber-500/5">
+              <CardHeader>
+                <CardTitle className="text-lg">Sin organización</CardTitle>
+                <CardDescription>
+                  Tu cuenta no tiene una organización asignada. Los webhooks se
+                  gestionan por organización. Contacta al administrador para
+                  vincular tu usuario a un cliente.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          )}
+
+          {!noOrg && webhooksApi && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Webhook className="w-5 h-5 text-primary" />
+                  Webhooks de estado
+                </CardTitle>
+                <CardDescription>
+                  Registra URLs HTTPS para recibir cambios de estado de tus
+                  mensajes en JSON.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <ClientWebhooksManager
+                  api={webhooksApi}
+                  enabled={activeTab === "webhooks" && Boolean(token)}
+                />
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
         {/* ─── TAB: Mensajes API Key ─── */}
-        <TabsContent
-          value="api-key"
-          forceMount
-          className="space-y-4 data-[state=inactive]:hidden"
-        >
+        <TabsContent value="api-key" forceMount className="space-y-4 data-[state=inactive]:hidden">
           <ApiKeyMessagesDocs
             ref={apiKeyDocRef}
             copyToClipboard={copyToClipboard}

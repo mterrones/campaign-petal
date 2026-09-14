@@ -52,7 +52,9 @@ import {
   fetchPlatformAdminMailProviders,
   platformAdminMailProvidersQueryKey,
 } from "@/lib/platformAdminMailProviders";
-import { Building2, Loader2, Plus, Trash2, Star, Pencil } from "lucide-react";
+import { sendChannelBadge, sendChannelLabel } from "@/lib/sendChannelLabels";
+import { Building2, Loader2, Plus, Trash2, Star, Pencil, Webhook } from "lucide-react";
+import { ClientWebhooksDialog } from "@/components/ClientWebhooksDialog";
 
 const ClientManagement = () => {
   const { token } = useAuth();
@@ -73,6 +75,10 @@ const ClientManagement = () => {
   const [domainClientId, setDomainClientId] = useState<string | null>(null);
   const [newDomain, setNewDomain] = useState("");
   const [deleteClientId, setDeleteClientId] = useState<string | null>(null);
+  const [webhooksClient, setWebhooksClient] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   const listQuery = useQuery({
     queryKey: platformAdminClientsQueryKey,
@@ -354,10 +360,15 @@ const ClientManagement = () => {
                     </TableCell>
                     <TableCell>
                       {c.mailProvider ? (
-                        <Badge variant={c.mailProvider.isActive ? "secondary" : "outline"}>
-                          {c.mailProvider.name}
-                          {c.mailProvider.isDefault ? " · principal" : ""}
-                        </Badge>
+                        <div className="flex flex-wrap gap-1.5">
+                          <Badge variant={c.mailProvider.isActive ? "secondary" : "outline"}>
+                            {c.mailProvider.name}
+                            {c.mailProvider.isDefault ? " · principal" : ""}
+                          </Badge>
+                          <Badge variant="outline">
+                            {sendChannelBadge(c.mailProvider.sendChannel)}
+                          </Badge>
+                        </div>
                       ) : (
                         <span className="text-muted-foreground text-sm">—</span>
                       )}
@@ -426,6 +437,16 @@ const ClientManagement = () => {
                       </Button>
                     </TableCell>
                     <TableCell className="text-right space-x-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Webhooks"
+                        onClick={() =>
+                          setWebhooksClient({ id: c.id, name: c.name })
+                        }
+                      >
+                        <Webhook className="h-4 w-4" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -500,7 +521,7 @@ const ClientManagement = () => {
                     .filter((p) => p.isActive)
                     .map((p) => (
                       <SelectItem key={p.id} value={p.id}>
-                        {p.name}
+                        {p.name} · {sendChannelLabel(p.sendChannel)}
                         {p.isDefault ? " (principal)" : ""}
                       </SelectItem>
                     ))}
@@ -588,7 +609,7 @@ const ClientManagement = () => {
                     .filter((p) => p.isActive)
                     .map((p) => (
                       <SelectItem key={p.id} value={p.id}>
-                        {p.name}
+                        {p.name} · {sendChannelLabel(p.sendChannel)}
                         {p.isDefault ? " (principal)" : ""}
                       </SelectItem>
                     ))}
@@ -705,6 +726,18 @@ const ClientManagement = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {token && webhooksClient && (
+        <ClientWebhooksDialog
+          token={token}
+          clientId={webhooksClient.id}
+          clientName={webhooksClient.name}
+          open={webhooksClient !== null}
+          onOpenChange={(o) => {
+            if (!o) setWebhooksClient(null);
+          }}
+        />
+      )}
     </div>
   );
 };

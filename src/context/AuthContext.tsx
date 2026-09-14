@@ -30,13 +30,18 @@ export type AuthUser = {
   sendingDomains: string[];
   defaultFrom: string | null;
   canSendMail: boolean;
+  isPlatformAdmin: boolean;
   impersonation: ImpersonationActor | null;
 };
 
-type RawAuthUser = Omit<AuthUser, "sendingDomains" | "defaultFrom" | "impersonation" | "canSendMail"> & {
+type RawAuthUser = Omit<
+  AuthUser,
+  "sendingDomains" | "defaultFrom" | "impersonation" | "canSendMail" | "isPlatformAdmin"
+> & {
   sendingDomains?: string[];
   defaultFrom?: string | null;
   canSendMail?: boolean;
+  isPlatformAdmin?: boolean;
   impersonation?: ImpersonationActor | null;
 };
 
@@ -53,6 +58,7 @@ function normalizeAuthUser(raw: RawAuthUser): AuthUser {
     sendingDomains: Array.isArray(raw.sendingDomains) ? raw.sendingDomains : [],
     defaultFrom: raw.defaultFrom ?? null,
     canSendMail: raw.canSendMail ?? true,
+    isPlatformAdmin: raw.isPlatformAdmin === true,
     impersonation,
   };
 }

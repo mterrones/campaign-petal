@@ -5,6 +5,7 @@ import {
   postJson,
   mailingApiV1Path,
 } from "@/lib/api";
+import type { AdminSendChannel } from "@/lib/sendChannelLabels";
 
 const base = `${mailingApiV1Path}/platform/admin/mail-providers`;
 
@@ -19,6 +20,7 @@ export type AdminMailProviderRow = {
   tlsRejectUnauthorized: boolean;
   isActive: boolean;
   isDefault: boolean;
+  sendChannel: AdminSendChannel;
   assignedClientCount: number;
 };
 
@@ -44,6 +46,7 @@ export async function createPlatformAdminMailProvider(
     tlsRejectUnauthorized: boolean;
     isActive: boolean;
     isDefault?: boolean;
+    sendChannel?: AdminSendChannel;
   },
 ) {
   return postJson<{ provider: AdminMailProviderRow }>(base, body, { token });
@@ -62,6 +65,7 @@ export async function patchPlatformAdminMailProvider(
     tlsRejectUnauthorized: boolean;
     isActive: boolean;
     isDefault: boolean;
+    sendChannel: AdminSendChannel;
   }>,
 ) {
   return patchJson<{ provider: AdminMailProviderRow }>(

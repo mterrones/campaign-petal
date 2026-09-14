@@ -21,6 +21,7 @@ function buildTimeline(
     textBody: null,
     cc: [],
     bcc: [],
+    processLog: null,
     ...overrides,
   };
 }

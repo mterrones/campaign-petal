@@ -46,6 +46,11 @@ import {
   platformAdminMailProvidersQueryKey,
   type AdminMailProviderRow,
 } from "@/lib/platformAdminMailProviders";
+import {
+  needsSmtpFields,
+  sendChannelBadge,
+  type AdminSendChannel,
+} from "@/lib/sendChannelLabels";
 import { Loader2, Mail, Pencil, Plus, Star, Trash2 } from "lucide-react";
 
 type FormState = {
@@ -58,6 +63,7 @@ type FormState = {
   tlsRejectUnauthorized: boolean;
   isActive: boolean;
   isDefault: boolean;
+  sendChannel: AdminSendChannel;
 };
 
 const emptyForm = (): FormState => ({
@@ -70,6 +76,7 @@ const emptyForm = (): FormState => ({
   tlsRejectUnauthorized: true,
   isActive: true,
   isDefault: false,
+  sendChannel: "smtp",
 });
 
 function formFromProvider(row: AdminMailProviderRow): FormState {
@@ -83,17 +90,36 @@ function formFromProvider(row: AdminMailProviderRow): FormState {
     tlsRejectUnauthorized: row.tlsRejectUnauthorized,
     isActive: row.isActive,
     isDefault: row.isDefault,
+    sendChannel: row.sendChannel ?? "smtp",
   };
 }
 
 function formToPayload(form: FormState, isEdit: boolean) {
+  const name = form.name.trim();
+  if (!name) throw new Error("REQUIRED");
+
+  if (!needsSmtpFields(form.sendChannel)) {
+    const payload = {
+      name,
+      smtpHost: form.smtpHost.trim() || "email.us-west-2.amazonaws.com",
+      smtpPort: 443,
+      smtpSecure: true,
+      smtpUser: null as string | null,
+      tlsRejectUnauthorized: true,
+      isActive: form.isActive,
+      isDefault: form.isDefault,
+      sendChannel: form.sendChannel,
+    };
+    if (!isEdit) return { ...payload, smtpPassword: null };
+    return payload;
+  }
+
   const port = Number(form.smtpPort);
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     throw new Error("PORT");
   }
-  const name = form.name.trim();
   const smtpHost = form.smtpHost.trim();
-  if (!name || !smtpHost) throw new Error("REQUIRED");
+  if (!smtpHost) throw new Error("REQUIRED");
   const payload = {
     name,
     smtpHost,
@@ -103,6 +129,7 @@ function formToPayload(form: FormState, isEdit: boolean) {
     tlsRejectUnauthorized: form.tlsRejectUnauthorized,
     isActive: form.isActive,
     isDefault: form.isDefault,
+    sendChannel: form.sendChannel,
   };
   if (form.smtpPassword.trim()) {
     return { ...payload, smtpPassword: form.smtpPassword };
@@ -243,64 +270,122 @@ const MailProviderManagement = () => {
           placeholder="EnviaMas"
         />
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="col-span-2 sm:col-span-1">
-          <Label>Host SMTP</Label>
-          <Input
-            value={form.smtpHost}
-            onChange={(e) => setForm({ ...form, smtpHost: e.target.value })}
-            placeholder="smtp.example.com"
-          />
-        </div>
-        <div>
-          <Label>Puerto</Label>
-          <Input
-            value={form.smtpPort}
-            onChange={(e) => setForm({ ...form, smtpPort: e.target.value })}
-            inputMode="numeric"
-          />
-        </div>
-      </div>
       <div>
-        <Label>Usuario SMTP (opcional)</Label>
-        <Input
-          value={form.smtpUser}
-          onChange={(e) => setForm({ ...form, smtpUser: e.target.value })}
-          autoComplete="off"
-        />
-      </div>
-      <div>
-        <Label>
-          Contraseña SMTP {isEdit ? "(dejar vacío para conservar)" : "(opcional)"}
-        </Label>
-        <Input
-          type="password"
-          value={form.smtpPassword}
-          onChange={(e) => setForm({ ...form, smtpPassword: e.target.value })}
-          autoComplete="new-password"
-          placeholder={isEdit && hasPassword ? "••••••••" : ""}
-        />
-      </div>
-      <div className="flex items-center justify-between rounded-lg border p-3">
-        <div>
-          <p className="text-sm font-medium">Conexión segura (SSL/TLS)</p>
-        </div>
-        <Switch
-          checked={form.smtpSecure}
-          onCheckedChange={(checked) => setForm({ ...form, smtpSecure: checked })}
-        />
-      </div>
-      <div className="flex items-center justify-between rounded-lg border p-3">
-        <div>
-          <p className="text-sm font-medium">Validar certificado TLS</p>
-        </div>
-        <Switch
-          checked={form.tlsRejectUnauthorized}
-          onCheckedChange={(checked) =>
-            setForm({ ...form, tlsRejectUnauthorized: checked })
+        <Label>Tipo de salida</Label>
+        <Select
+          value={form.sendChannel}
+          onValueChange={(value: AdminSendChannel) =>
+            setForm({
+              ...form,
+              sendChannel: value,
+              ...(value === "ses_smtp"
+                ? {
+                    smtpPort:
+                      form.smtpPort === "25" ? "587" : form.smtpPort,
+                    smtpSecure: true,
+                  }
+                : value === "smtp"
+                  ? {
+                      smtpPort: form.smtpPort === "443" ? "25" : form.smtpPort,
+                    }
+                  : {}),
+            })
           }
-        />
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="smtp">SMTP propio</SelectItem>
+            <SelectItem value="ses_smtp">Cloud SMTP</SelectItem>
+            <SelectItem value="ses_api">Cloud API</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
+      {needsSmtpFields(form.sendChannel) ? (
+        <>
+          {form.sendChannel === "ses_smtp" && (
+            <p className="text-sm text-muted-foreground rounded-lg border p-3">
+              Usa el endpoint SMTP del proveedor cloud (p. ej. email-smtp o Mail
+              Manager) y las credenciales SMTP correspondientes. El nombre del
+              proveedor es solo una etiqueta.
+            </p>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2 sm:col-span-1">
+              <Label>Host SMTP</Label>
+              <Input
+                value={form.smtpHost}
+                onChange={(e) => setForm({ ...form, smtpHost: e.target.value })}
+                placeholder={
+                  form.sendChannel === "ses_smtp"
+                    ? "email-smtp.us-west-2.amazonaws.com"
+                    : "smtp.example.com"
+                }
+              />
+            </div>
+            <div>
+              <Label>Puerto</Label>
+              <Input
+                value={form.smtpPort}
+                onChange={(e) => setForm({ ...form, smtpPort: e.target.value })}
+                inputMode="numeric"
+              />
+            </div>
+          </div>
+          <div>
+            <Label>Usuario SMTP (opcional)</Label>
+            <Input
+              value={form.smtpUser}
+              onChange={(e) => setForm({ ...form, smtpUser: e.target.value })}
+              autoComplete="off"
+            />
+          </div>
+          <div>
+            <Label>
+              Contraseña SMTP{" "}
+              {isEdit ? "(dejar vacío para conservar)" : "(opcional)"}
+            </Label>
+            <Input
+              type="password"
+              value={form.smtpPassword}
+              onChange={(e) =>
+                setForm({ ...form, smtpPassword: e.target.value })
+              }
+              autoComplete="new-password"
+              placeholder={isEdit && hasPassword ? "••••••••" : ""}
+            />
+          </div>
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div>
+              <p className="text-sm font-medium">Conexión segura (SSL/TLS)</p>
+            </div>
+            <Switch
+              checked={form.smtpSecure}
+              onCheckedChange={(checked) =>
+                setForm({ ...form, smtpSecure: checked })
+              }
+            />
+          </div>
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div>
+              <p className="text-sm font-medium">Validar certificado TLS</p>
+            </div>
+            <Switch
+              checked={form.tlsRejectUnauthorized}
+              onCheckedChange={(checked) =>
+                setForm({ ...form, tlsRejectUnauthorized: checked })
+              }
+            />
+          </div>
+        </>
+      ) : (
+        <p className="text-sm text-muted-foreground rounded-lg border p-3">
+          Los envíos por ingest salen con Cloud API desde el Lambda (IAM). El
+          dominio del cliente debe estar verificado en el proveedor. El nombre
+          del proveedor es solo una etiqueta.
+        </p>
+      )}
       <div className="flex items-center justify-between rounded-lg border p-3">
         <div>
           <p className="text-sm font-medium">Activo</p>
@@ -334,7 +419,7 @@ const MailProviderManagement = () => {
             Proveedores de correo
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Credenciales SMTP por proveedor. Cada cliente usa un proveedor asignado.
+            Canal SMTP o Cloud API por proveedor. Cada cliente usa un proveedor asignado.
           </p>
         </div>
         <Button onClick={() => setCreateOpen(true)} className="shrink-0">
@@ -345,9 +430,9 @@ const MailProviderManagement = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Proveedores SMTP</CardTitle>
+          <CardTitle>Proveedores de correo</CardTitle>
           <CardDescription>
-            El proveedor principal se preselecciona al crear clientes.
+            El tipo de salida define el canal. El nombre es solo una etiqueta.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -363,6 +448,7 @@ const MailProviderManagement = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nombre</TableHead>
+                  <TableHead>Tipo</TableHead>
                   <TableHead>Host</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead>Clientes</TableHead>
@@ -378,8 +464,15 @@ const MailProviderManagement = () => {
                         {p.isDefault && <Badge>Principal</Badge>}
                       </div>
                     </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">
+                        {sendChannelBadge(p.sendChannel)}
+                      </Badge>
+                    </TableCell>
                     <TableCell className="font-mono text-xs">
-                      {p.smtpHost}:{p.smtpPort}
+                      {needsSmtpFields(p.sendChannel)
+                        ? `${p.smtpHost}:${p.smtpPort}`
+                        : "—"}
                     </TableCell>
                     <TableCell>
                       <Badge variant={p.isActive ? "default" : "secondary"}>
@@ -431,7 +524,7 @@ const MailProviderManagement = () => {
           <DialogHeader>
             <DialogTitle>Nuevo proveedor</DialogTitle>
             <DialogDescription>
-              Configura las credenciales SMTP del relay de correo.
+            Configura el tipo de salida y, si aplica, las credenciales SMTP.
             </DialogDescription>
           </DialogHeader>
           {renderFormFields(createForm, setCreateForm, false)}

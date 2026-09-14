@@ -34,10 +34,23 @@ const printCss = `
   th, td { border: 1px solid #e5e5e5; padding: 6px 8px; text-align: left; vertical-align: top; font-size: 10px; }
   th { background: #fafafa; font-weight: 600; }
   .card, [class*="rounded-"] { box-shadow: none !important; }
-  button { display: none !important; }
+  button, nav[aria-label="Secciones de documentación"] { display: none !important; }
+  [data-state=closed] { display: block !important; }
+  [data-radix-accordion-content] { height: auto !important; overflow: visible !important; animation: none !important; }
   [data-radix-scroll-area-viewport] { overflow: visible !important; }
   * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 `;
+
+function prepareApiDocsClone(source: HTMLElement): HTMLElement {
+  const clone = source.cloneNode(true) as HTMLElement;
+  clone.querySelectorAll('[data-state="closed"]').forEach((el) => {
+    el.setAttribute("data-state", "open");
+  });
+  clone.querySelectorAll("[hidden]").forEach((el) => {
+    el.removeAttribute("hidden");
+  });
+  return clone;
+}
 
 export async function downloadApiDocumentationPdf(
   apiKeySection: HTMLElement,
@@ -48,7 +61,7 @@ export async function downloadApiDocumentationPdf(
   }
 
   const styles = collectStyles();
-  const apiKeyHtml = (apiKeySection.cloneNode(true) as HTMLElement).outerHTML;
+  const apiKeyHtml = prepareApiDocsClone(apiKeySection).outerHTML;
 
   printWindow.document.open();
   printWindow.document.write(`<!doctype html>
@@ -62,9 +75,9 @@ export async function downloadApiDocumentationPdf(
 <body>
   <div class="doc-header">
     <h1>Enviamas - Maillings API's</h1>
-    <p>API Key · POST y GET ${mailingApiV1Path}/messages · Gateway (api.sl) y API (api.mailling)</p>
+    <p>API Key · POST ${mailingApiV1Path}/messages · GET y flujo API SL en la página API vs API SL</p>
   </div>
-  <h2>Mensajes (API Key)</h2>
+  <h2>Documentación</h2>
   ${apiKeyHtml}
 </body>
 </html>`);

@@ -13,8 +13,8 @@ export type DeliveryStatusMeta = {
 
 export const DELIVERY_STATUS_OPTIONS: DeliveryStatusMeta[] = [
   { value: "enqueued", label: "En cola", tone: "warning" },
-  { value: "sent", label: "Enviado (SMTP)", tone: "info" },
-  { value: "delivered", label: "Entregado (destino)", tone: "success" },
+  { value: "sent", label: "Enviado", tone: "info" },
+  { value: "delivered", label: "Entregado", tone: "success" },
   { value: "delayed", label: "Retrasado", tone: "warning" },
   { value: "bounced", label: "Rebotado", tone: "destructive" },
   { value: "failed", label: "Falló", tone: "destructive" },

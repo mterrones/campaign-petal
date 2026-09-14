@@ -397,7 +397,9 @@ const CampaignReport = () => {
                     <TableCell className="text-right text-sm">{m.openCount}</TableCell>
                     <TableCell className="text-right text-sm">{m.clickCount}</TableCell>
                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap tabular-nums">
-                      {formatDateTimeGmtMinus5(m.sentAt ?? m.createdAt)}
+                      {m.sentAt
+                        ? formatDateTimeGmtMinus5(m.sentAt)
+                        : "—"}
                     </TableCell>
                     <TableCell className="text-right">
                       <Button

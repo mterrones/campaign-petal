@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { useAuth } from "@/context/AuthContext";
 import { formatDateTimeGmtMinus5 } from "@/lib/dateTimeGmtMinus5";
+import { canViewMessageProcessLog } from "@/lib/platformAdmin";
 import {
   fetchMessageTimeline,
   messageTimelineQueryKey,
@@ -40,7 +41,8 @@ const MessageTimelineDialog = ({
   open,
   onOpenChange,
 }: MessageTimelineDialogProps) => {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const showProcessLog = canViewMessageProcessLog(user);
 
   const detailQuery = useQuery({
     queryKey: messageTimelineQueryKey(messageId),
@@ -50,6 +52,10 @@ const MessageTimelineDialog = ({
 
   const detail = detailQuery.data;
   const reason = detail ? resolveStatusReason(detail) : null;
+  const processLog =
+    showProcessLog && detail?.processLog && detail.processLog.length > 0
+      ? detail.processLog
+      : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -150,6 +156,30 @@ const MessageTimelineDialog = ({
                 })}
               </ol>
             </div>
+
+            {processLog && (
+              <div>
+                <h3 className="mb-3 text-sm font-semibold">Log de proceso</h3>
+                <ol className="space-y-3">
+                  {processLog.map((entry, index) => (
+                    <li
+                      key={`${entry.at}-${index}`}
+                      className="rounded-md border bg-muted/20 px-3 py-2"
+                    >
+                      <p className="text-sm font-medium">{entry.step}</p>
+                      {entry.detail && (
+                        <p className="text-xs text-muted-foreground break-words mt-0.5">
+                          {entry.detail}
+                        </p>
+                      )}
+                      <p className="text-xs text-muted-foreground tabular-nums mt-1">
+                        {formatDateTimeGmtMinus5(entry.at)}
+                      </p>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
 
             <div>
               <h3 className="mb-3 text-sm font-semibold">Contenido enviado</h3>

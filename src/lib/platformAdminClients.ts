@@ -20,6 +20,7 @@ export type AdminClientMailProvider = {
   name: string;
   isActive: boolean;
   isDefault: boolean;
+  sendChannel?: "smtp" | "ses_smtp" | "ses_api";
 };
 
 export type AdminClientRow = {
