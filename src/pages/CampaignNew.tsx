@@ -1,8 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, FilePlus, LayoutTemplate, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { listUserTemplates, type UserTemplate } from "@/lib/userTemplates";
+import { useAuth } from "@/context/AuthContext";
+import {
+  listEmailTemplatesWithMigration,
+  platformEmailTemplatesQueryKey,
+} from "@/lib/userTemplates";
 import { emailTemplates } from "@/components/email-editor/templates";
 import { exportHtml } from "@/components/email-editor/htmlExport";
 import {
@@ -53,7 +58,13 @@ function Preview({
 const CampaignNew = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [userTemplates, setUserTemplates] = useState<UserTemplate[]>([]);
+  const { token } = useAuth();
+  const templatesQuery = useQuery({
+    queryKey: platformEmailTemplatesQueryKey,
+    queryFn: () => listEmailTemplatesWithMigration(token!),
+    enabled: !!token,
+  });
+  const userTemplates = templatesQuery.data ?? [];
 
   const goEditor = useMemo(
     () => (param?: string) => {
@@ -65,10 +76,6 @@ const CampaignNew = () => {
     },
     [navigate],
   );
-
-  useEffect(() => {
-    setUserTemplates(listUserTemplates());
-  }, []);
 
   // If we arrived with ?template=..., jump straight into the editor.
   useEffect(() => {

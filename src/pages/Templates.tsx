@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 import {
   LayoutTemplate,
   Plus,
@@ -38,9 +40,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  deleteUserTemplate,
-  duplicateUserTemplate,
-  listUserTemplates,
+  deleteEmailTemplate,
+  duplicateEmailTemplate,
+  listEmailTemplatesWithMigration,
+  platformEmailTemplatesQueryKey,
   type UserTemplate,
 } from "@/lib/userTemplates";
 import { exportHtml } from "@/components/email-editor/htmlExport";
@@ -79,22 +82,41 @@ function MiniPreview({ tpl }: { tpl: UserTemplate }) {
 
 const Templates = () => {
   const navigate = useNavigate();
-  const [templates, setTemplates] = useState<UserTemplate[]>([]);
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [toDelete, setToDelete] = useState<UserTemplate | null>(null);
 
-  const refresh = () => setTemplates(listUserTemplates());
+  const listQuery = useQuery({
+    queryKey: platformEmailTemplatesQueryKey,
+    queryFn: () => listEmailTemplatesWithMigration(token!),
+    enabled: !!token,
+  });
 
-  useEffect(() => {
-    refresh();
-    const handler = () => refresh();
-    window.addEventListener("user-templates-changed", handler);
-    window.addEventListener("storage", handler);
-    return () => {
-      window.removeEventListener("user-templates-changed", handler);
-      window.removeEventListener("storage", handler);
-    };
-  }, []);
+  const templates = listQuery.data ?? [];
+
+  const duplicateMutation = useMutation({
+    mutationFn: (id: string) => duplicateEmailTemplate(token!, id),
+    onSuccess: () => {
+      toast.success("Plantilla duplicada");
+      void queryClient.invalidateQueries({ queryKey: platformEmailTemplatesQueryKey });
+    },
+    onError: () => {
+      toast.error("No se pudo duplicar la plantilla");
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteEmailTemplate(token!, id),
+    onSuccess: () => {
+      toast.success("Plantilla eliminada");
+      setToDelete(null);
+      void queryClient.invalidateQueries({ queryKey: platformEmailTemplatesQueryKey });
+    },
+    onError: () => {
+      toast.error("No se pudo eliminar la plantilla");
+    },
+  });
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -108,19 +130,13 @@ const Templates = () => {
   }, [templates, search]);
 
   const handleDuplicate = (id: string) => {
-    const dup = duplicateUserTemplate(id);
-    if (dup) {
-      toast.success("Plantilla duplicada");
-      refresh();
-    }
+    if (!token) return;
+    duplicateMutation.mutate(id);
   };
 
   const handleDeleteConfirm = () => {
-    if (!toDelete) return;
-    deleteUserTemplate(toDelete.id);
-    toast.success("Plantilla eliminada");
-    setToDelete(null);
-    refresh();
+    if (!toDelete || !token) return;
+    deleteMutation.mutate(toDelete.id);
   };
 
   const handleUseInCampaign = (id: string) => {
@@ -155,7 +171,15 @@ const Templates = () => {
         </div>
       )}
 
-      {templates.length === 0 ? (
+      {listQuery.isLoading ? (
+        <p className="text-sm text-muted-foreground py-8 text-center">
+          Cargando plantillas…
+        </p>
+      ) : listQuery.isError ? (
+        <p className="text-sm text-destructive py-8 text-center">
+          No se pudieron cargar las plantillas.
+        </p>
+      ) : templates.length === 0 ? (
         <Card>
           <CardHeader className="text-center py-12">
             <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
@@ -253,6 +277,7 @@ const Templates = () => {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteConfirm}
+              disabled={deleteMutation.isPending}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Eliminar

@@ -4,8 +4,10 @@ import { ArrowLeft, Save, Send, GripVertical, Trash2, Copy, Undo2, Redo2, Downlo
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { emailTemplates } from "@/components/email-editor/templates";
 import {
-  getUserTemplate,
-  saveUserTemplate,
+  getEmailTemplate,
+  persistEmailTemplate,
+  platformEmailTemplatesQueryKey,
+  type UserTemplate,
 } from "@/lib/userTemplates";
 import { useAuth } from "@/context/AuthContext";
 import { ApiError, mailingApiV1Path, patchJson, postJson } from "@/lib/api";
@@ -104,6 +106,22 @@ type PatchCampaignResponse = {
   campaign: PlatformCampaign;
 };
 
+const AUTOSAVE_INTERVAL_MS = 5 * 60 * 1000;
+
+function snapshotTemplateState(
+  name: string,
+  subject: string,
+  description: string,
+  blocks: unknown,
+  globalStyles: unknown,
+): string {
+  return JSON.stringify({ name, subject, description, blocks, globalStyles });
+}
+
+function formatSavedAt(date: Date): string {
+  return date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+}
+
 const EmailEditor = () => {
   const editor = useEmailEditor();
   const { token, user } = useAuth();
@@ -124,6 +142,14 @@ const EmailEditor = () => {
   const [saveTplDialogOpen, setSaveTplDialogOpen] = useState(false);
   const [tplDescription, setTplDescription] = useState("");
   const [tplSubmitting, setTplSubmitting] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [lastPersistedSnapshot, setLastPersistedSnapshot] = useState<string | null>(null);
+  const baselinePendingRef = useRef(false);
+  const persistInFlightRef = useRef(false);
+  const isDirtyRef = useRef(false);
+  const persistTemplateRef = useRef<(silent: boolean) => Promise<UserTemplate | null>>(
+    async () => null,
+  );
 
   const isMobile = useIsMobile();
   const [htmlCode, setHtmlCode] = useState("");
@@ -217,33 +243,35 @@ const EmailEditor = () => {
     ? editor.blocks.find(b => b.id === editor.selectedInner!.blockId)?.columns?.[editor.selectedInner!.colIndex]?.find(i => i.id === editor.selectedInner!.innerId) || null
     : null;
 
-  // Preload template (from URL param or template being edited) and skip the selector.
   useEffect(() => {
+    if (!token) return;
     if (templateLoadRef.current) return;
     const templateParam = searchParams.get("template");
 
     if (isTemplateMode) {
       templateLoadRef.current = true;
       if (editingTemplateId) {
-        const tpl = getUserTemplate(editingTemplateId);
-        if (tpl) {
-          editor.setPreviewName(tpl.name);
-          editor.setSubject(tpl.subject || tpl.name);
-          setTplDescription(tpl.description || "");
-          editor.loadTemplate(tpl.blocks, tpl.globalStyles);
-        } else {
-          toast.error("Plantilla no encontrada");
-          navigate("/templates", { replace: true });
-        }
+        void getEmailTemplate(token, editingTemplateId)
+          .then((tpl) => {
+            editor.setPreviewName(tpl.name);
+            editor.setSubject(tpl.subject || tpl.name);
+            setTplDescription(tpl.description || "");
+            editor.loadTemplate(tpl.blocks, tpl.globalStyles);
+            setLastSavedAt(new Date(tpl.updatedAt));
+            baselinePendingRef.current = true;
+          })
+          .catch(() => {
+            toast.error("Plantilla no encontrada");
+            navigate("/templates", { replace: true });
+          });
       } else {
-        // /templates/new — start blank without showing the selector
         editor.setPreviewName("Plantilla sin título");
         editor.loadTemplate([], {});
+        baselinePendingRef.current = true;
       }
       return;
     }
 
-    // Campaign mode — handle ?template=blank|builtin:id|user:id and ?subject=&name=
     const subjectParam = searchParams.get("subject");
     const nameParam = searchParams.get("name");
     if (templateParam) {
@@ -252,15 +280,18 @@ const EmailEditor = () => {
         editor.loadTemplate([], {});
       } else if (templateParam.startsWith("user:")) {
         const id = templateParam.slice(5);
-        const tpl = getUserTemplate(id);
-        if (tpl) {
-          editor.setSubject(tpl.subject || editor.subject);
-          editor.setPreviewName(tpl.name);
-          editor.loadTemplate(tpl.blocks, tpl.globalStyles);
-        } else {
-          toast.error("Plantilla no encontrada");
-          editor.loadTemplate([], {});
-        }
+        void getEmailTemplate(token, id)
+          .then((tpl) => {
+            editor.setSubject(tpl.subject || tpl.name);
+            editor.setPreviewName(tpl.name);
+            editor.loadTemplate(tpl.blocks, tpl.globalStyles);
+            if (subjectParam) editor.setSubject(subjectParam);
+            if (nameParam) editor.setPreviewName(nameParam);
+          })
+          .catch(() => {
+            toast.error("Plantilla no encontrada");
+            editor.loadTemplate([], {});
+          });
       } else if (templateParam.startsWith("builtin:")) {
         const id = templateParam.slice(8);
         const tpl = emailTemplates.find((t) => t.id === id);
@@ -269,13 +300,12 @@ const EmailEditor = () => {
         } else {
           editor.loadTemplate([], {});
         }
+        if (subjectParam) editor.setSubject(subjectParam);
+        if (nameParam) editor.setPreviewName(nameParam);
       }
-      // Apply explicit overrides from query string (used when duplicating)
-      if (subjectParam) editor.setSubject(subjectParam);
-      if (nameParam) editor.setPreviewName(nameParam);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     if (isTemplateMode) return;
@@ -571,36 +601,111 @@ const EmailEditor = () => {
 
   const openSaveTemplateDialog = () => setSaveTplDialogOpen(true);
 
-  const handleSaveTemplate = () => {
+  const currentSnapshot = snapshotTemplateState(
+    editor.previewName,
+    editor.subject,
+    tplDescription,
+    editor.blocks,
+    editor.globalStyles,
+  );
+  const isDirty =
+    lastPersistedSnapshot !== null && currentSnapshot !== lastPersistedSnapshot;
+  isDirtyRef.current = isDirty;
+
+  useEffect(() => {
+    if (!baselinePendingRef.current) return;
+    baselinePendingRef.current = false;
+    const snap = snapshotTemplateState(
+      editor.previewName,
+      editor.subject,
+      tplDescription,
+      editor.blocks,
+      editor.globalStyles,
+    );
+    setLastPersistedSnapshot(snap);
+  }, [editor.previewName, editor.subject, tplDescription, editor.blocks, editor.globalStyles]);
+
+  const persistTemplate = async (silent: boolean): Promise<UserTemplate | null> => {
     const name = editor.previewName.trim();
     if (!name) {
-      toast.error("Ponle un nombre a la plantilla");
-      return;
+      if (!silent) toast.error("Ponle un nombre a la plantilla");
+      return null;
     }
     if (editor.blocks.length === 0) {
-      toast.error("Agrega al menos un bloque antes de guardar");
-      return;
+      if (!silent) toast.error("Agrega al menos un bloque antes de guardar");
+      return null;
     }
+    if (!token) {
+      toast.error("Inicia sesión para guardar");
+      return null;
+    }
+    if (persistInFlightRef.current) return null;
+    persistInFlightRef.current = true;
     setTplSubmitting(true);
     try {
-      const saved = saveUserTemplate({
-        id: savedTemplateId ?? undefined,
-        name,
-        description: tplDescription.trim(),
-        subject: editor.subject.trim(),
-        blocks: editor.blocks,
-        globalStyles: editor.globalStyles,
-      });
-      setSavedTemplateId(saved.id);
-      toast.success("Plantilla guardada");
-      setSaveTplDialogOpen(false);
-      if (!editingTemplateId) {
-        navigate(`/templates/${saved.id}/edit`, { replace: true });
+      const verified = await persistEmailTemplate(
+        token,
+        {
+          name,
+          description: tplDescription.trim(),
+          subject: editor.subject.trim(),
+          blocks: editor.blocks,
+          globalStyles: editor.globalStyles,
+        },
+        savedTemplateId,
+      );
+      setLastPersistedSnapshot(
+        snapshotTemplateState(
+          editor.previewName,
+          editor.subject,
+          tplDescription,
+          editor.blocks,
+          editor.globalStyles,
+        ),
+      );
+      setSavedTemplateId(verified.id);
+      setLastSavedAt(new Date());
+      void queryClient.invalidateQueries({ queryKey: platformEmailTemplatesQueryKey });
+      if (!silent) {
+        toast.success("Plantilla guardada");
+        setSaveTplDialogOpen(false);
+        if (!editingTemplateId) {
+          navigate(`/templates/${verified.id}/edit`, { replace: true });
+        }
       }
+      return verified;
+    } catch {
+      toast.error("No se pudo guardar la plantilla");
+      return null;
     } finally {
+      persistInFlightRef.current = false;
       setTplSubmitting(false);
     }
   };
+  persistTemplateRef.current = persistTemplate;
+
+  const handleSaveTemplate = () => {
+    void persistTemplate(false);
+  };
+
+  useEffect(() => {
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!isDirtyRef.current) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, []);
+
+  useEffect(() => {
+    if (!isTemplateMode || !savedTemplateId) return;
+    const timer = window.setInterval(() => {
+      if (!isDirtyRef.current || persistInFlightRef.current) return;
+      void persistTemplateRef.current(true);
+    }, AUTOSAVE_INTERVAL_MS);
+    return () => window.clearInterval(timer);
+  }, [isTemplateMode, savedTemplateId, lastSavedAt]);
 
   // Fallback to inline selector only if neither template nor URL param is set.
   if (editor.showTemplateSelector && !isTemplateMode && !searchParams.get("template")) {
@@ -658,6 +763,11 @@ const EmailEditor = () => {
           )}
           <div className="hidden sm:flex gap-1.5 items-center">
             <div className="w-px h-6 bg-border mx-1" />
+            {isTemplateMode && lastSavedAt && (
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                Guardado {formatSavedAt(lastSavedAt)}
+              </span>
+            )}
             <Button variant="outline" size="sm" onClick={handleCopyHtml}><Copy className="w-3.5 h-3.5 mr-1.5" />Copiar HTML</Button>
             <Button variant="outline" size="sm" onClick={handleExportHtml}><Download className="w-3.5 h-3.5 mr-1.5" />Exportar</Button>
             {isTemplateMode ? (
@@ -1219,8 +1329,8 @@ const EmailEditor = () => {
               {savedTemplateId ? "Actualizar plantilla" : "Guardar como plantilla"}
             </DialogTitle>
             <DialogDescription>
-              Tus plantillas se guardan en este navegador y podrás reutilizarlas
-              al crear nuevas campañas.
+              La plantilla se guarda en tu cuenta y podrás reutilizarla al crear
+              nuevas campañas.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
