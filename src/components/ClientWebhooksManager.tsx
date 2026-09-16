@@ -101,7 +101,7 @@ export function ClientWebhooksManager({
       void queryClient.invalidateQueries({ queryKey: api.queryKey });
       setFormOpen(false);
       resetForm();
-      toast.success("Webhook creado");
+      toast.success("Webhook creado. Enviamos un evento configured a la URL.");
     },
     onError: (err) => {
       toast.error(err instanceof ApiError ? err.message : "Error al crear webhook");
@@ -118,10 +118,18 @@ export function ClientWebhooksManager({
       });
     },
     onSuccess: () => {
+      const pinged =
+        Boolean(editing) &&
+        isActive &&
+        (url.trim() !== editing.url || !editing.isActive);
       void queryClient.invalidateQueries({ queryKey: api.queryKey });
       setFormOpen(false);
       resetForm();
-      toast.success("Webhook actualizado");
+      toast.success(
+        pinged
+          ? "Webhook actualizado. Enviamos un evento configured a la URL."
+          : "Webhook actualizado",
+      );
     },
     onError: (err) => {
       toast.error(
@@ -227,7 +235,8 @@ export function ClientWebhooksManager({
               {editing ? "Editar webhook" : "Nuevo webhook"}
             </DialogTitle>
             <DialogDescription>
-              Solo HTTPS. Elige los estados que disparan la notificación.
+              Solo HTTPS. Al guardar un webhook activo se envía un POST de
+              prueba (event configured) a la URL.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">

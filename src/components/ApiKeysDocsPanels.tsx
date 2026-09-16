@@ -340,7 +340,16 @@ export const ApiKeyMessagesDocs = forwardRef<HTMLDivElement, ApiKeyDocsProps>(
   "occurredAt": "2026-09-13T12:00:00.000Z",
   "to": "destinatario@ejemplo.com",
   "errorCode": "GATEWAY_INTERNAL",
-  "errorDetail": "No se pudo entregar el mensaje, error interno."
+              "errorDetail": "No se pudo entregar el mensaje, error interno."
+}
+
+// Al configurar el webhook:
+{
+  "id": "<webhook-uuid>",
+  "deliveryStatus": "configured",
+  "event": "configured",
+  "occurredAt": "2026-09-16T21:00:00.000Z",
+  "to": ""
 }`}
             />
             <p className="text-[11px] text-muted-foreground">
@@ -350,8 +359,10 @@ export const ApiKeyMessagesDocs = forwardRef<HTMLDivElement, ApiKeyDocsProps>(
               <code className="bg-muted px-1 rounded">bounced</code>, etc.).
             </p>
             <p>
-              Si el endpoint falla, hay un reintento a ~5 min; el segundo fallo va
-              a DLQ.
+              Al crear un webhook activo (o al cambiar la URL / activarlo) se envía
+              un POST de prueba con{" "}
+              <code className="bg-muted px-1 rounded">event: "configured"</code>
+              . Si el endpoint falla, la lambda reintenta una vez.
             </p>
           </CardContent>
         </Card>
