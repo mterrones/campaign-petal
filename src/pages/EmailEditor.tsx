@@ -260,9 +260,13 @@ const EmailEditor = () => {
             setLastSavedAt(new Date(tpl.updatedAt));
             baselinePendingRef.current = true;
           })
-          .catch(() => {
-            toast.error("Plantilla no encontrada");
-            navigate("/templates", { replace: true });
+          .catch((error: unknown) => {
+            if (error instanceof ApiError && error.status === 404) {
+              toast.error("Plantilla no encontrada");
+              navigate("/templates", { replace: true });
+              return;
+            }
+            toast.error("No se pudo cargar la plantilla");
           });
       } else {
         editor.setPreviewName("Plantilla sin título");
@@ -288,8 +292,12 @@ const EmailEditor = () => {
             if (subjectParam) editor.setSubject(subjectParam);
             if (nameParam) editor.setPreviewName(nameParam);
           })
-          .catch(() => {
-            toast.error("Plantilla no encontrada");
+          .catch((error: unknown) => {
+            if (error instanceof ApiError && error.status === 404) {
+              toast.error("Plantilla no encontrada");
+            } else {
+              toast.error("No se pudo cargar la plantilla");
+            }
             editor.loadTemplate([], {});
           });
       } else if (templateParam.startsWith("builtin:")) {
@@ -674,8 +682,16 @@ const EmailEditor = () => {
         }
       }
       return verified;
-    } catch {
-      toast.error("No se pudo guardar la plantilla");
+    } catch (error) {
+      const tooLarge =
+        error instanceof ApiError &&
+        (error.status === 413 ||
+          /entity too large|payload too large/i.test(error.message));
+      toast.error(
+        tooLarge
+          ? "La imagen es demasiado pesada. Prueba una más liviana."
+          : "No se pudo guardar la plantilla",
+      );
       return null;
     } finally {
       persistInFlightRef.current = false;

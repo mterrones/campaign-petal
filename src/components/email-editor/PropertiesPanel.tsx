@@ -9,6 +9,8 @@ import { Separator } from "@/components/ui/separator";
 import { EmailBlock, InnerBlock, GlobalEmailStyles, blockTypes, innerBlockTypes, COLUMN_LAYOUTS, FONT_OPTIONS, SOCIAL_NETWORKS } from "./types";
 import { Trash2, Plus, Upload, X, Image as ImageIcon, Variable } from "lucide-react";
 import React, { useCallback, useRef } from "react";
+import { toast } from "sonner";
+import { compressImageFile } from "./compressImage";
 
 const CONTACT_VARIABLES = Array.from({ length: 8 }, (_, i) => ({
   label: `VAR${i + 1}`,
@@ -53,11 +55,16 @@ function ImageUpload({ label, value, onChange }: { label: string; value: string;
 
   const handleFile = useCallback((file: File) => {
     if (!file.type.startsWith("image/")) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") onChange(reader.result);
-    };
-    reader.readAsDataURL(file);
+    void compressImageFile(file)
+      .then(onChange)
+      .catch((error: unknown) => {
+        const code = error instanceof Error ? error.message : "";
+        if (code === "IMAGE_TOO_LARGE") {
+          toast.error("La imagen es demasiado pesada. Prueba una más liviana.");
+          return;
+        }
+        toast.error("No se pudo procesar la imagen");
+      });
   }, [onChange]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
