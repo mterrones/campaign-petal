@@ -160,6 +160,34 @@ export function createPlatformContact(
   return postJson(`${base}/contacts`, body, { token });
 }
 
+export type ContactImportJob = {
+  id: string;
+  directoryId: string;
+  fileName: string;
+  status: "queued" | "running" | "completed" | "failed";
+  total: number;
+  processed: number;
+  inserted: number;
+  skipped: number;
+  error: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export function startContactImport(
+  token: string,
+  body: { directoryId: string; fileName: string; csv: string },
+): Promise<{ job: ContactImportJob }> {
+  return postJson(`${base}/contacts/import`, body, { token });
+}
+
+export function fetchContactImportJob(
+  token: string,
+  jobId: string,
+): Promise<{ job: ContactImportJob }> {
+  return getJson(`${base}/contacts/import/${encodeURIComponent(jobId)}`, token);
+}
+
 export function createPlatformContactsBatch(
   token: string,
   body: {

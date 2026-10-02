@@ -35,7 +35,8 @@ import {
   bulkMoveContacts,
   createContactDirectory,
   createPlatformContact,
-  createPlatformContactsBatch,
+  fetchContactImportJob,
+  startContactImport,
   deleteContactDirectory,
   deletePlatformContact,
   fetchContactDirectories,
@@ -65,13 +66,6 @@ type SidebarDir = {
   contactCount: number;
 };
 
-type ExcelPreviewRow = {
-  email: string;
-  name: string;
-  lastName: string;
-  tags: string[];
-};
-
 const Contacts = () => {
   const { token } = useAuth();
   const queryClient = useQueryClient();
@@ -94,8 +88,8 @@ const Contacts = () => {
 
   const [addMode, setAddMode] = useState<"choose" | "manual" | "excel" | null>(null);
   const [newContact, setNewContact] = useState({ name: "", lastName: "", email: "", tags: "" });
-  const [excelPreview, setExcelPreview] = useState<ExcelPreviewRow[]>([]);
-  const [excelFileName, setExcelFileName] = useState("");
+  const [excelFile, setExcelFile] = useState<File | null>(null);
+  const [importJobId, setImportJobId] = useState<string | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQ(searchTerm), 350);
@@ -276,32 +270,68 @@ const Contacts = () => {
     },
   });
 
-  const importBatchMutation = useMutation({
-    mutationFn: async () => {
-      const dirId = resolveTargetDirectoryId();
-      if (!dirId) throw new Error("no-dir");
-      return createPlatformContactsBatch(token!, {
-        directoryId: dirId,
-        contacts: excelPreview.map((r) => ({
-          email: r.email,
-          name: r.name,
-          lastName: r.lastName,
-          tags: r.tags,
-        })),
-      });
+  const importJobQuery = useQuery({
+    queryKey: ["platform", "contacts", "import", importJobId],
+    queryFn: () => fetchContactImportJob(token!, importJobId!),
+    enabled: !!token && !!importJobId,
+    refetchInterval: (query) => {
+      const status = query.state.data?.job.status;
+      if (status === "completed" || status === "failed") return false;
+      return 800;
     },
-    onSuccess: (res) => {
-      setExcelPreview([]);
-      setExcelFileName("");
+  });
+
+  const importJob = importJobQuery.data?.job;
+
+  useEffect(() => {
+    if (!importJob) return;
+    if (importJob.status === "completed") {
       setAddMode(null);
+      setExcelFile(null);
+      setImportJobId(null);
       invalidateContacts();
       toast({
         title: "Importación completada",
-        description: `${res.inserted} agregados${res.skipped ? `, ${res.skipped} omitidos` : ""}.`,
+        description: `${importJob.inserted} agregados${
+          importJob.skipped ? `, ${importJob.skipped} omitidos` : ""
+        }.`,
+      });
+    }
+    if (importJob.status === "failed") {
+      toast({
+        title: "Error al importar",
+        description: importJob.error ?? "Falló el procesamiento",
+        variant: "destructive",
+      });
+    }
+  }, [importJob]);
+
+  const importBatchMutation = useMutation({
+    mutationFn: async () => {
+      const dirId = resolveTargetDirectoryId();
+      if (!dirId) throw new Error("Selecciona un directorio");
+      if (!excelFile) throw new Error("Selecciona un archivo CSV");
+      const csv = await excelFile.text();
+      return startContactImport(token!, {
+        directoryId: dirId,
+        fileName: excelFile.name,
+        csv,
       });
     },
-    onError: () => {
-      toast({ title: "Error al importar", variant: "destructive" });
+    onSuccess: (res) => {
+      setImportJobId(res.job.id);
+    },
+    onError: (err) => {
+      toast({
+        title: "Error al importar",
+        description:
+          err instanceof ApiError
+            ? err.message
+            : err instanceof Error
+              ? err.message
+              : undefined,
+        variant: "destructive",
+      });
     },
   });
 
@@ -430,60 +460,19 @@ const Contacts = () => {
   const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setExcelFileName(file.name);
-
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      try {
-        const text = evt.target?.result as string;
-        const lines = text.split("\n").filter((l) => l.trim());
-        if (lines.length < 2) {
-          toast({ title: "Archivo vacío", description: "El archivo no contiene datos.", variant: "destructive" });
-          return;
-        }
-
-        const headers = lines[0].split(/[,;\t]/).map((h) => h.trim().toLowerCase());
-        const emailIdx = headers.findIndex((h) => h.includes("email") || h.includes("correo"));
-        const nameIdx = headers.findIndex((h) => h === "nombre" || h === "name" || h === "first_name");
-        const lastNameIdx = headers.findIndex((h) => h.includes("apellido") || h === "last_name" || h === "lastname");
-        const tagsIdx = headers.findIndex((h) => h.includes("etiqueta") || h.includes("tag"));
-
-        if (emailIdx === -1) {
-          toast({
-            title: "Columna de email no encontrada",
-            description: "Incluye una columna Email o Correo.",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        const parsed: ExcelPreviewRow[] = [];
-        for (let i = 1; i < lines.length; i++) {
-          const cols = lines[i].split(/[,;\t]/).map((c) => c.trim().replace(/^"|"$/g, ""));
-          const email = cols[emailIdx];
-          if (!email || !email.includes("@")) continue;
-          parsed.push({
-            email,
-            name: nameIdx >= 0 ? cols[nameIdx] || "" : "",
-            lastName: lastNameIdx >= 0 ? cols[lastNameIdx] || "" : "",
-            tags:
-              tagsIdx >= 0 && cols[tagsIdx]
-                ? cols[tagsIdx].split("|").map((t) => t.trim()).filter(Boolean)
-                : [],
-          });
-        }
-        setExcelPreview(parsed);
-      } catch {
-        toast({ title: "Error al leer archivo", description: "No se pudo procesar el archivo.", variant: "destructive" });
-      }
-    };
-    reader.readAsText(file);
+    setExcelFile(file);
+    setImportJobId(null);
   };
 
   const handleImportExcel = () => {
-    if (excelPreview.length === 0) return;
+    if (!excelFile) return;
     importBatchMutation.mutate();
   };
+
+  const importBusy =
+    importBatchMutation.isPending ||
+    importJob?.status === "queued" ||
+    importJob?.status === "running";
 
   const findDirName = (c: PlatformContact) =>
     sidebarDirs.find((d) => d.id === c.directoryId)?.name ?? c.directoryId;
@@ -1236,73 +1225,56 @@ const Contacts = () => {
               <DialogHeader>
                 <DialogTitle>Importar desde Excel / CSV</DialogTitle>
               </DialogHeader>
-              {excelPreview.length === 0 ? (
-                <div className="py-6">
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Sube un archivo <strong>.csv</strong> o <strong>.txt</strong> con columnas: Email, Nombre, Apellido, Etiquetas (separadas por |).
-                  </p>
-                  <div className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-primary/40 transition-colors">
-                    <Upload className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
-                    <p className="text-sm font-medium mb-1">Arrastra tu archivo aquí o haz clic</p>
-                    <p className="text-xs text-muted-foreground mb-3">CSV, TXT (separado por comas, punto y coma o tabulaciones)</p>
-                    <Input type="file" accept=".csv,.txt,.tsv" className="max-w-xs mx-auto" onChange={handleExcelUpload} />
-                  </div>
-                  <DialogFooter className="mt-4">
-                    <Button variant="outline" onClick={() => setAddMode("choose")}>
-                      Atrás
-                    </Button>
-                  </DialogFooter>
+              <div className="py-6">
+                <p className="text-sm text-muted-foreground mb-4">
+                  Sube un archivo <strong>.csv</strong> o <strong>.txt</strong> con columnas: Email, Nombre, Apellido, Etiquetas (separadas por |). El servidor lo procesa en segundo plano por lotes.
+                </p>
+                <div className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-primary/40 transition-colors">
+                  <Upload className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
+                  <p className="text-sm font-medium mb-1">Arrastra tu archivo aquí o haz clic</p>
+                  <p className="text-xs text-muted-foreground mb-3">CSV, TXT (separado por comas, punto y coma o tabulaciones)</p>
+                  <Input
+                    type="file"
+                    accept=".csv,.txt,.tsv"
+                    className="max-w-xs mx-auto"
+                    disabled={importBusy}
+                    onChange={handleExcelUpload}
+                  />
+                  {excelFile && (
+                    <p className="text-sm mt-3">
+                      Archivo: <strong>{excelFile.name}</strong>
+                    </p>
+                  )}
                 </div>
-              ) : (
-                <div className="py-2">
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Se encontraron <strong>{excelPreview.length}</strong> filas en &quot;{excelFileName}&quot;:
+                {importJob && (importJob.status === "queued" || importJob.status === "running") && (
+                  <p className="text-sm text-muted-foreground mt-4">
+                    Procesando {importJob.processed} / {importJob.total}…
+                    {importJob.inserted
+                      ? ` ${importJob.inserted} agregados`
+                      : ""}
+                    {importJob.skipped ? `, ${importJob.skipped} omitidos` : ""}
                   </p>
-                  <div className="max-h-60 overflow-y-auto border rounded-lg">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Email</TableHead>
-                          <TableHead>Nombre</TableHead>
-                          <TableHead>Etiquetas</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {excelPreview.slice(0, 50).map((c, idx) => (
-                          <TableRow key={`${c.email}-${idx}`}>
-                            <TableCell className="text-xs">{c.email}</TableCell>
-                            <TableCell className="text-xs">
-                              {c.name} {c.lastName}
-                            </TableCell>
-                            <TableCell className="text-xs">{c.tags.join(", ")}</TableCell>
-                          </TableRow>
-                        ))}
-                        {excelPreview.length > 50 && (
-                          <TableRow>
-                            <TableCell colSpan={3} className="text-center text-xs text-muted-foreground">
-                              ...y {excelPreview.length - 50} más
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                  <DialogFooter className="mt-4">
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setExcelPreview([]);
-                        setExcelFileName("");
-                      }}
-                    >
-                      Cambiar archivo
-                    </Button>
-                    <Button onClick={handleImportExcel} disabled={importBatchMutation.isPending}>
-                      Importar {excelPreview.length} contacto(s)
-                    </Button>
-                  </DialogFooter>
-                </div>
-              )}
+                )}
+                <DialogFooter className="mt-4">
+                  <Button
+                    variant="outline"
+                    disabled={importBusy}
+                    onClick={() => {
+                      setAddMode("choose");
+                      setExcelFile(null);
+                      setImportJobId(null);
+                    }}
+                  >
+                    Atrás
+                  </Button>
+                  <Button
+                    onClick={handleImportExcel}
+                    disabled={!excelFile || importBusy}
+                  >
+                    {importBusy ? "Importando…" : "Importar CSV"}
+                  </Button>
+                </DialogFooter>
+              </div>
             </>
           )}
         </DialogContent>
