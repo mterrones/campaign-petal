@@ -28,6 +28,12 @@ import {
   platformCampaignsQueryKey,
   type PlatformCampaign,
 } from "@/lib/platformCampaigns";
+import {
+  fetchActiveCampaignSendJob,
+  isCampaignSendJobActive,
+  platformSendAgendaActiveQueryKey,
+  startCampaignAgendaSend,
+} from "@/lib/platformSendAgenda";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,7 +61,6 @@ import { TemplateSelector } from "@/components/email-editor/TemplateSelector";
 import { exportHtml } from "@/components/email-editor/htmlExport";
 import { SendDialogSenderFields } from "@/components/SendDialogSenderFields";
 import {
-  fetchActiveEmailsForAgenda,
   fetchContactDirectories,
   fetchContactsActiveCount,
   platformContactDirectoriesQueryKey,
@@ -89,13 +94,6 @@ type SendEmailResponse = {
   deliveryStatus: string;
   errorDetail?: string | null;
   errorCode?: string | null;
-};
-
-type SendBulkResponse = {
-  enqueued: { id: string; to: string }[];
-  blacklisted?: { id: string; to: string }[];
-  failed: { email: string; error: string }[];
-  attempted: number;
 };
 
 type CreateCampaignResponse = {
@@ -190,6 +188,15 @@ const EmailEditor = () => {
   });
 
   const agendaRecipientCount = activeAgendaCountQuery.data?.count ?? 0;
+
+  const activeSendJobQuery = useQuery({
+    queryKey: platformSendAgendaActiveQueryKey,
+    queryFn: () => fetchActiveCampaignSendJob(token!),
+    enabled: !!token,
+  });
+  const agendaSendBusy = isCampaignSendJobActive(
+    activeSendJobQuery.data?.job?.status,
+  );
 
   const testMessageQuery = useQuery({
     queryKey: platformMessageStatusQueryKey(testMessageId ?? ""),
@@ -541,15 +548,7 @@ const EmailEditor = () => {
       toast.error("Indica el asunto");
       return;
     }
-    let recipients: string[];
-    try {
-      const res = await fetchActiveEmailsForAgenda(token, selectedAgendaId);
-      recipients = res.emails;
-    } catch {
-      toast.error("No se pudieron cargar los contactos de la agenda");
-      return;
-    }
-    if (recipients.length === 0) {
+    if (agendaRecipientCount === 0) {
       toast.error("No hay contactos activos en esta agenda");
       return;
     }
@@ -562,42 +561,30 @@ const EmailEditor = () => {
     if (!from) return;
     setSendSubmitting(true);
     try {
-      const res = await postJson<SendBulkResponse>(
-        `${mailingApiV1Path}/platform/send-bulk`,
-        {
-          to: recipients,
-          subject,
-          html,
-          from,
-          ...(campaignId ? { campaignId } : {}),
-        },
-        { token },
-      );
+      await startCampaignAgendaSend(token, {
+        directoryId: selectedAgendaId,
+        subject,
+        html,
+        from,
+        ...(campaignId ? { campaignId } : {}),
+      });
       invalidateCampaignQueries();
+      void queryClient.invalidateQueries({ queryKey: platformSendAgendaActiveQueryKey });
       void queryClient.invalidateQueries({ queryKey: platformContactDirectoriesQueryKey });
       void queryClient.invalidateQueries({ queryKey: ["platform", "contacts"] });
-      const n = res.enqueued.length;
-      const nb = res.blacklisted?.length ?? 0;
-      if (res.failed.length === 0 && nb === 0) {
-        toast.success(`${n} correo(s) en cola para envío`);
-      } else {
-        const parts = [
-          `${n} en cola`,
-          nb > 0 ? `${nb} en lista de exclusión (no enviados)` : null,
-          res.failed.length > 0 ? `${res.failed.length} rechazados` : null,
-        ].filter(Boolean);
-        toast.warning(parts.join(" · "));
-      }
+      toast.success("Envío iniciado. El progreso aparece arriba.");
       setSendDialogOpen(false);
       setSendStep("test");
     } catch (e) {
       if (e instanceof ApiError) {
         if (e.status === 429) {
           toast.error("Límite de envíos masivos. Espera unos minutos.");
+        } else if (e.status === 409) {
+          toast.error(e.message || "Ya hay un envío de agenda en curso");
         } else if (e.status === 400) {
           toast.error(resolveClientSendErrorMessage(e.body));
         } else {
-          toast.error("No se pudo completar el envío masivo");
+          toast.error("No se pudo iniciar el envío");
         }
       } else {
         toast.error("Error de red al enviar");
@@ -1288,7 +1275,7 @@ const EmailEditor = () => {
                 )}
                 <div className="space-y-2">
                   <Label htmlFor="agenda-select">Agenda</Label>
-                  <Select value={selectedAgendaId} onValueChange={setSelectedAgendaId} disabled={sendSubmitting}>
+                  <Select value={selectedAgendaId} onValueChange={setSelectedAgendaId} disabled={sendSubmitting || agendaSendBusy}>
                     <SelectTrigger id="agenda-select">
                       <SelectValue placeholder="Selecciona agenda" />
                     </SelectTrigger>
@@ -1324,11 +1311,12 @@ const EmailEditor = () => {
                     onClick={handleBulkSend}
                     disabled={
                       sendSubmitting ||
+                      agendaSendBusy ||
                       agendaRecipientCount === 0 ||
                       activeAgendaCountQuery.isFetching
                     }
                   >
-                    {sendSubmitting ? "Enviando…" : "Enviar a la agenda"}
+                    {sendSubmitting || agendaSendBusy ? "Enviando…" : "Enviar a la agenda"}
                   </Button>
                 </div>
               </DialogFooter>
