@@ -160,6 +160,17 @@ export function createPlatformContact(
   return postJson(`${base}/contacts`, body, { token });
 }
 
+export type ContactImportSkipReason =
+  | "invalid_email"
+  | "duplicate_in_file"
+  | "already_exists";
+
+export type ContactImportSkip = {
+  row: number;
+  email: string;
+  reason: ContactImportSkipReason;
+};
+
 export type ContactImportJob = {
   id: string;
   directoryId: string;
@@ -170,6 +181,7 @@ export type ContactImportJob = {
   inserted: number;
   skipped: number;
   error: string | null;
+  errors: ContactImportSkip[];
   createdAt: string;
   updatedAt: string;
 };

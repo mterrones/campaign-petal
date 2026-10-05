@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Search, Upload, UserPlus, MoreHorizontal, FolderPlus, Folder,
   Trash2, ArrowRightLeft, CheckSquare, X, Pencil, Users, FileSpreadsheet,
-  ChevronLeft, ChevronRight, Ban,
+  ChevronLeft, ChevronRight, Ban, Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,9 +26,9 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
-import { ApiError } from "@/lib/api";
+import { ApiError, downloadBlob } from "@/lib/api";
 import { formatDateTimeGmtMinus5 } from "@/lib/dateTimeGmtMinus5";
-import type { PlatformContact } from "@/lib/platformContacts";
+import type { ContactImportSkipReason, PlatformContact } from "@/lib/platformContacts";
 import {
   addEmailSuppression,
   bulkDeleteContacts,
@@ -51,6 +51,18 @@ import {
 
 const CONTACTS_PAGE_SIZE = 50;
 const BLACKLIST_VIRTUAL_ID = "__blacklist__";
+
+const IMPORT_SKIP_LABELS: Record<ContactImportSkipReason, string> = {
+  invalid_email: "Email inválido",
+  duplicate_in_file: "Duplicado en el archivo",
+  already_exists: "Ya existe en tus contactos",
+};
+
+function escapeCsvCell(value: string | number): string {
+  const str = String(value);
+  if (/[",\r\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
+  return str;
+}
 
 const statusMap: Record<string, { label: string; className: string }> = {
   active: { label: "Activo", className: "bg-success/10 text-success border-success/20" },
@@ -86,7 +98,8 @@ const Contacts = () => {
   const [suppressionAddOpen, setSuppressionAddOpen] = useState(false);
   const [suppressionAddEmail, setSuppressionAddEmail] = useState("");
 
-  const [addMode, setAddMode] = useState<"choose" | "manual" | "excel" | null>(null);
+  const [addMode, setAddMode] = useState<"choose" | "manual" | "excel" | "import-result" | null>(null);
+  const handledImportStatusRef = useRef<string | null>(null);
   const [newContact, setNewContact] = useState({ name: "", lastName: "", email: "", tags: "" });
   const [excelFile, setExcelFile] = useState<File | null>(null);
   const [importJobId, setImportJobId] = useState<string | null>(null);
@@ -282,14 +295,22 @@ const Contacts = () => {
   });
 
   const importJob = importJobQuery.data?.job;
+  const importErrors = importJob?.errors ?? [];
 
   useEffect(() => {
     if (!importJob) return;
+    const key = `${importJob.id}:${importJob.status}`;
+    if (handledImportStatusRef.current === key) return;
+    handledImportStatusRef.current = key;
     if (importJob.status === "completed") {
+      invalidateContacts();
+      if (importErrors.length > 0) {
+        setAddMode("import-result");
+        return;
+      }
       setAddMode(null);
       setExcelFile(null);
       setImportJobId(null);
-      invalidateContacts();
       toast({
         title: "Importación completada",
         description: `${importJob.inserted} agregados${
@@ -304,7 +325,7 @@ const Contacts = () => {
         variant: "destructive",
       });
     }
-  }, [importJob]);
+  }, [importJob, importErrors.length]);
 
   const importBatchMutation = useMutation({
     mutationFn: async () => {
@@ -319,6 +340,7 @@ const Contacts = () => {
       });
     },
     onSuccess: (res) => {
+      handledImportStatusRef.current = null;
       setImportJobId(res.job.id);
     },
     onError: (err) => {
@@ -462,11 +484,38 @@ const Contacts = () => {
     if (!file) return;
     setExcelFile(file);
     setImportJobId(null);
+    handledImportStatusRef.current = null;
   };
 
   const handleImportExcel = () => {
     if (!excelFile) return;
     importBatchMutation.mutate();
+  };
+
+  const closeImportDialog = () => {
+    setAddMode(null);
+    setExcelFile(null);
+    setImportJobId(null);
+    handledImportStatusRef.current = null;
+  };
+
+  const handleDownloadImportErrors = () => {
+    if (!importJob || importErrors.length === 0) return;
+    const lines = [
+      ["fila", "email", "motivo"].join(","),
+      ...importErrors.map((item) =>
+        [
+          escapeCsvCell(item.row),
+          escapeCsvCell(item.email),
+          escapeCsvCell(IMPORT_SKIP_LABELS[item.reason] ?? item.reason),
+        ].join(","),
+      ),
+    ];
+    const baseName = importJob.fileName.replace(/\.[^.]+$/, "") || "contactos";
+    downloadBlob(
+      new Blob(["\uFEFF" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" }),
+      `omisiones-${baseName}.csv`,
+    );
   };
 
   const importBusy =
@@ -1127,13 +1176,15 @@ const Contacts = () => {
         open={addMode !== null}
         onOpenChange={(o) => {
           if (!o) {
-            setAddMode(null);
-            setExcelPreview([]);
-            setExcelFileName("");
+            if (importBusy) {
+              setAddMode(null);
+              return;
+            }
+            closeImportDialog();
           }
         }}
       >
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className={addMode === "import-result" ? "sm:max-w-2xl" : "sm:max-w-lg"}>
           {addMode === "choose" && (
             <>
               <DialogHeader>
@@ -1275,6 +1326,53 @@ const Contacts = () => {
                   </Button>
                 </DialogFooter>
               </div>
+            </>
+          )}
+
+          {addMode === "import-result" && importJob && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Resultado de la importación</DialogTitle>
+                <DialogDescription>
+                  {importJob.inserted} agregados, {importJob.skipped} omitidos
+                  {importJob.fileName ? ` · ${importJob.fileName}` : ""}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="max-h-80 overflow-auto rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-16">Fila</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Motivo</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {importErrors.map((item, index) => (
+                      <TableRow key={`${item.row}-${item.email}-${index}`}>
+                        <TableCell className="tabular-nums text-muted-foreground">
+                          {item.row}
+                        </TableCell>
+                        <TableCell className="font-medium break-all">
+                          {item.email || "—"}
+                        </TableCell>
+                        <TableCell>
+                          {IMPORT_SKIP_LABELS[item.reason] ?? item.reason}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={closeImportDialog}>
+                  Cerrar
+                </Button>
+                <Button onClick={handleDownloadImportErrors}>
+                  <Download className="w-4 h-4 mr-2" />
+                  Descargar CSV
+                </Button>
+              </DialogFooter>
             </>
           )}
         </DialogContent>
