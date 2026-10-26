@@ -14,6 +14,7 @@ import {
   Activity,
   UserCog,
   Building2,
+  GraduationCap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
@@ -78,6 +79,7 @@ const secondaryNav: NavItem[] = [
       { to: "/settings", label: "Dominios", icon: Globe },
     ],
   },
+  { to: "/tutorials", icon: GraduationCap, label: "Tutoriales" },
 ];
 
 const AppSidebar = () => {
