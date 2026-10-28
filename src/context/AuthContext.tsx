@@ -23,10 +23,14 @@ export type ImpersonationActor = {
   email: string;
 };
 
+export type ClientRole = "admin" | "member";
+
 export type AuthUser = {
   id: string;
   email: string;
   clientId: string | null;
+  /** Role inside the client; admins manage the client's users. */
+  clientRole: ClientRole;
   sendingDomains: string[];
   defaultFrom: string | null;
   canSendMail: boolean;
@@ -36,8 +40,14 @@ export type AuthUser = {
 
 type RawAuthUser = Omit<
   AuthUser,
-  "sendingDomains" | "defaultFrom" | "impersonation" | "canSendMail" | "isPlatformAdmin"
+  | "sendingDomains"
+  | "defaultFrom"
+  | "impersonation"
+  | "canSendMail"
+  | "isPlatformAdmin"
+  | "clientRole"
 > & {
+  clientRole?: ClientRole;
   sendingDomains?: string[];
   defaultFrom?: string | null;
   canSendMail?: boolean;
@@ -55,6 +65,7 @@ function normalizeAuthUser(raw: RawAuthUser): AuthUser {
     id: raw.id,
     email: raw.email,
     clientId: raw.clientId,
+    clientRole: raw.clientRole === "admin" ? "admin" : "member",
     sendingDomains: Array.isArray(raw.sendingDomains) ? raw.sendingDomains : [],
     defaultFrom: raw.defaultFrom ?? null,
     canSendMail: raw.canSendMail ?? true,

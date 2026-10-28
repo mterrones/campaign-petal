@@ -5,6 +5,7 @@ import { z } from "zod";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { ApiError } from "@/lib/api";
+import { extractErrorCodeFromBody } from "@/lib/clientDeliveryErrors";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -161,6 +162,8 @@ const Login = () => {
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) {
         toast.error("Correo o contraseña incorrectos");
+      } else if (e instanceof ApiError && extractErrorCodeFromBody(e.body) === "ACCOUNT_DISABLED") {
+        toast.error("Tu cuenta está desactivada. Contacta al administrador de tu organización.");
       } else {
         toast.error("No se pudo iniciar sesión. Intenta de nuevo.");
       }

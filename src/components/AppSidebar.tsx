@@ -15,6 +15,7 @@ import {
   UserCog,
   Building2,
   GraduationCap,
+  UsersRound,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
@@ -82,11 +83,18 @@ const secondaryNav: NavItem[] = [
   { to: "/tutorials", icon: GraduationCap, label: "Tutoriales" },
 ];
 
+const clientUsersNavItem: NavItem = { to: "/users", icon: UsersRound, label: "Usuarios" };
+
 const AppSidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout, user } = useAuth();
   const platformAdmin = isPlatformAdmin(user);
+  const clientAdmin = user?.clientRole === "admin" && Boolean(user?.clientId);
+  // "Usuarios" sits before "Tutoriales" and only for the client's admins.
+  const toolsNav = clientAdmin
+    ? [...secondaryNav.slice(0, -1), clientUsersNavItem, ...secondaryNav.slice(-1)]
+    : secondaryNav;
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
 
@@ -248,7 +256,7 @@ const AppSidebar = () => {
           )}
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1">
-              {secondaryNav.map(renderItem)}
+              {toolsNav.map(renderItem)}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

@@ -20,6 +20,7 @@ import ApiKeys from "./pages/ApiKeys";
 import ApiVsApiSl from "./pages/ApiVsApiSl";
 import Templates from "./pages/Templates";
 import Tutorials from "./pages/Tutorials";
+import ClientUsers from "./pages/ClientUsers";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import AdminUsers from "./pages/AdminUsers";
@@ -57,6 +58,7 @@ const App = () => (
                 <Route path="/api-keys" element={<ApiKeys />} />
                 <Route path="/api-keys/api-vs-api-sl" element={<ApiVsApiSl />} />
                 <Route path="/tutorials" element={<Tutorials />} />
+                <Route path="/users" element={<ClientUsers />} />
                 <Route path="/admin/users" element={<AdminUsers />} />
                 <Route path="/admin/clients" element={<ClientManagement />} />
                 <Route path="/admin/mail-providers" element={<MailProviderManagement />} />

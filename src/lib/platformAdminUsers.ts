@@ -1,4 +1,5 @@
 import { getJson, patchJson, postJson, mailingApiV1Path } from "@/lib/api";
+import type { ClientRole } from "@/context/AuthContext";
 
 const base = `${mailingApiV1Path}/platform/admin`;
 
@@ -6,6 +7,8 @@ export type PlatformAdminUserRow = {
   id: string;
   email: string;
   clientId: string | null;
+  clientRole: ClientRole;
+  disabled: boolean;
   createdAt: string;
 };
 
@@ -17,7 +20,12 @@ export async function fetchPlatformAdminUsers(token: string) {
 
 export async function createPlatformAdminUser(
   token: string,
-  body: { email: string; password: string; clientId?: string | null },
+  body: {
+    email: string;
+    password: string;
+    clientId?: string | null;
+    clientRole?: ClientRole;
+  },
 ) {
   return postJson<{ user: PlatformAdminUserRow }>(`${base}/users`, body, {
     token,
@@ -27,7 +35,12 @@ export async function createPlatformAdminUser(
 export async function patchPlatformAdminUser(
   token: string,
   userId: string,
-  body: { email?: string; clientId?: string | null },
+  body: {
+    email?: string;
+    clientId?: string | null;
+    clientRole?: ClientRole;
+    disabled?: boolean;
+  },
 ) {
   return patchJson<{ user: Omit<PlatformAdminUserRow, "createdAt"> }>(
     `${base}/users/${encodeURIComponent(userId)}`,

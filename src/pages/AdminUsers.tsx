@@ -19,6 +19,15 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   PlatformClientSelect,
   clientLabelById,
@@ -32,7 +41,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth, type ClientRole } from "@/context/AuthContext";
+import { CLIENT_ROLE_LABELS } from "@/lib/platformClientUsers";
 import { ApiError } from "@/lib/api";
 import {
   createPlatformAdminUser,
@@ -56,6 +66,8 @@ const AdminUsers = () => {
   const [editId, setEditId] = useState<string | null>(null);
   const [editEmail, setEditEmail] = useState("");
   const [editClientId, setEditClientId] = useState("");
+  const [editRole, setEditRole] = useState<ClientRole>("member");
+  const [editActive, setEditActive] = useState(true);
   const [pwdId, setPwdId] = useState<string | null>(null);
   const [pwdNew, setPwdNew] = useState("");
   const [pwdConfirm, setPwdConfirm] = useState("");
@@ -64,6 +76,7 @@ const AdminUsers = () => {
   const [createPassword, setCreatePassword] = useState("");
   const [createPasswordConfirm, setCreatePasswordConfirm] = useState("");
   const [createClientId, setCreateClientId] = useState("");
+  const [createRole, setCreateRole] = useState<ClientRole>("member");
 
   const listQuery = useQuery({
     queryKey: platformAdminUsersQueryKey,
@@ -89,6 +102,7 @@ const AdminUsers = () => {
         email: createEmail.trim(),
         password: createPassword,
         clientId: clientTrim === "" ? null : clientTrim,
+        clientRole: createRole,
       });
     },
     onSuccess: () => {
@@ -138,6 +152,8 @@ const AdminUsers = () => {
       return patchPlatformAdminUser(token, editId, {
         email: editEmail.trim(),
         clientId: clientTrim === "" ? null : clientTrim,
+        clientRole: editRole,
+        disabled: !editActive,
       });
     },
     onSuccess: () => {
@@ -215,10 +231,14 @@ const AdminUsers = () => {
     id: string;
     email: string;
     clientId: string | null;
+    clientRole: ClientRole;
+    disabled: boolean;
   }) => {
     setEditId(row.id);
     setEditEmail(row.email);
     setEditClientId(row.clientId ?? "");
+    setEditRole(row.clientRole);
+    setEditActive(!row.disabled);
   };
 
   return (
@@ -246,6 +266,7 @@ const AdminUsers = () => {
               setCreatePassword("");
               setCreatePasswordConfirm("");
               setCreateClientId("");
+              setCreateRole("member");
               setCreateOpen(true);
             }}
           >
@@ -267,6 +288,8 @@ const AdminUsers = () => {
                 <TableRow>
                   <TableHead>Correo</TableHead>
                   <TableHead>Cliente</TableHead>
+                  <TableHead>Rol</TableHead>
+                  <TableHead>Estado</TableHead>
                   <TableHead className="w-[280px] text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
@@ -279,7 +302,7 @@ const AdminUsers = () => {
                     canImpersonate && !isSelf && !isAdminAccount;
 
                   return (
-                  <TableRow key={u.id}>
+                  <TableRow key={u.id} className={u.disabled ? "opacity-60" : undefined}>
                     <TableCell className="font-medium">{u.email}</TableCell>
                     <TableCell className="text-muted-foreground text-sm">
                       {clientLabelById(clients, u.clientId)}
@@ -289,8 +312,28 @@ const AdminUsers = () => {
                         </span>
                       )}
                     </TableCell>
+                    <TableCell>
+                      {u.clientId ? (
+                        <Badge variant={u.clientRole === "admin" ? "default" : "secondary"}>
+                          {CLIENT_ROLE_LABELS[u.clientRole]}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {u.disabled ? (
+                        <Badge variant="outline" className="text-muted-foreground">
+                          Desactivado
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="border-success/40 text-success">
+                          Activo
+                        </Badge>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right space-x-2">
-                      {showImpersonate && (
+                      {showImpersonate && !u.disabled && (
                         <Button
                           type="button"
                           variant="secondary"
@@ -396,6 +439,18 @@ const AdminUsers = () => {
                 loading={clientsQuery.isLoading}
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="admin-create-role">Rol en el cliente</Label>
+              <Select value={createRole} onValueChange={(v) => setCreateRole(v as ClientRole)}>
+                <SelectTrigger id="admin-create-role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="member">Miembro</SelectItem>
+                  <SelectItem value="admin">Administrador: gestiona usuarios del cliente</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
@@ -421,7 +476,7 @@ const AdminUsers = () => {
           <DialogHeader>
             <DialogTitle>Editar usuario</DialogTitle>
             <DialogDescription>
-              Cambia el correo o el cliente asociado. Elige «Sin cliente» para quitar la asociación.
+              Cambia el correo, el cliente, el rol o el estado. Elige «Sin cliente» para quitar la asociación.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -444,6 +499,32 @@ const AdminUsers = () => {
                 onChange={setEditClientId}
                 clients={clients}
                 loading={clientsQuery.isLoading}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="admin-edit-role">Rol en el cliente</Label>
+              <Select value={editRole} onValueChange={(v) => setEditRole(v as ClientRole)}>
+                <SelectTrigger id="admin-edit-role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="member">Miembro</SelectItem>
+                  <SelectItem value="admin">Administrador: gestiona usuarios del cliente</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center justify-between gap-4 rounded-md border px-3 py-2.5">
+              <div>
+                <Label htmlFor="admin-edit-active">Cuenta activa</Label>
+                <p className="text-xs text-muted-foreground">
+                  Si la desactivas, no podrá ingresar y su sesión abierta se cerrará.
+                </p>
+              </div>
+              <Switch
+                id="admin-edit-active"
+                checked={editActive}
+                disabled={editId === user?.id}
+                onCheckedChange={setEditActive}
               />
             </div>
           </div>
