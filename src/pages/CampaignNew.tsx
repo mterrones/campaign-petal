@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, FilePlus, LayoutTemplate, Sparkles } from "lucide-react";
+import { ArrowLeft, FilePlus, LayoutTemplate, Sparkles, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -64,7 +64,7 @@ const CampaignNew = () => {
     queryFn: () => listEmailTemplatesWithMigration(token!),
     enabled: !!token,
   });
-  const userTemplates = templatesQuery.data ?? [];
+  const userTemplates = templatesQuery.data?.templates ?? [];
 
   const goEditor = useMemo(
     () => (param?: string) => {
@@ -142,7 +142,7 @@ const CampaignNew = () => {
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Tus plantillas
+              Plantillas guardadas
             </h2>
             <Link
               to="/templates"
@@ -170,6 +170,12 @@ const CampaignNew = () => {
                   <p className="text-xs text-muted-foreground truncate mt-0.5">
                     {tpl.description || tpl.subject || "Sin descripción"}
                   </p>
+                  {tpl.shared && (
+                    <p className="text-[11px] text-muted-foreground truncate mt-1 flex items-center gap-1">
+                      <Users className="w-3 h-3 shrink-0" />
+                      {tpl.isOwner ? "Compartida con tu empresa" : tpl.ownerEmail}
+                    </p>
+                  )}
                 </div>
               </button>
             ))}

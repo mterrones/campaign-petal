@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Save, Send, GripVertical, Trash2, Copy, Undo2, Redo2, Download, Monitor, Smartphone, Settings, Code, PanelRight, LayoutGrid, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { ArrowLeft, Save, Send, GripVertical, Trash2, Copy, Undo2, Redo2, Download, Monitor, Smartphone, Settings, Code, PanelRight, LayoutGrid, Loader2, CheckCircle2, XCircle, Users, Eye } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { emailTemplates } from "@/components/email-editor/templates";
 import {
+  duplicateEmailTemplate,
   getEmailTemplate,
   persistEmailTemplate,
   platformEmailTemplatesQueryKey,
@@ -37,6 +38,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
@@ -139,6 +141,13 @@ const EmailEditor = () => {
   const [savedTemplateId, setSavedTemplateId] = useState<string | null>(editingTemplateId);
   const [saveTplDialogOpen, setSaveTplDialogOpen] = useState(false);
   const [tplDescription, setTplDescription] = useState("");
+  const [tplShared, setTplShared] = useState(false);
+  // Template of a teammate that this user may use/duplicate but not change.
+  const [tplReadOnly, setTplReadOnly] = useState(false);
+  const [tplOwnerEmail, setTplOwnerEmail] = useState("");
+  const [tplIsOwner, setTplIsOwner] = useState(true);
+  const [tplDuplicating, setTplDuplicating] = useState(false);
+  const canShareTemplates = !!user?.clientId;
   const [tplSubmitting, setTplSubmitting] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [lastPersistedSnapshot, setLastPersistedSnapshot] = useState<string | null>(null);
@@ -263,6 +272,10 @@ const EmailEditor = () => {
             editor.setPreviewName(tpl.name);
             editor.setSubject(tpl.subject || tpl.name);
             setTplDescription(tpl.description || "");
+            setTplShared(tpl.shared);
+            setTplReadOnly(!tpl.canEdit);
+            setTplOwnerEmail(tpl.ownerEmail);
+            setTplIsOwner(tpl.isOwner);
             editor.loadTemplate(tpl.blocks, tpl.globalStyles);
             setLastSavedAt(new Date(tpl.updatedAt));
             baselinePendingRef.current = true;
@@ -604,7 +617,9 @@ const EmailEditor = () => {
     editor.globalStyles,
   );
   const isDirty =
-    lastPersistedSnapshot !== null && currentSnapshot !== lastPersistedSnapshot;
+    !tplReadOnly &&
+    lastPersistedSnapshot !== null &&
+    currentSnapshot !== lastPersistedSnapshot;
   isDirtyRef.current = isDirty;
 
   useEffect(() => {
@@ -621,6 +636,10 @@ const EmailEditor = () => {
   }, [editor.previewName, editor.subject, tplDescription, editor.blocks, editor.globalStyles]);
 
   const persistTemplate = async (silent: boolean): Promise<UserTemplate | null> => {
+    if (tplReadOnly) {
+      if (!silent) toast.error("Esta plantilla es de otro usuario. Duplícala para editarla.");
+      return null;
+    }
     const name = editor.previewName.trim();
     if (!name) {
       if (!silent) toast.error("Ponle un nombre a la plantilla");
@@ -646,6 +665,9 @@ const EmailEditor = () => {
           subject: editor.subject.trim(),
           blocks: editor.blocks,
           globalStyles: editor.globalStyles,
+          // Only the owner changes sharing from here; an admin editing a
+          // teammate's template keeps it as is (unsharing would hide it from them).
+          ...(tplIsOwner && canShareTemplates ? { shared: tplShared } : {}),
         },
         savedTemplateId,
       );
@@ -659,6 +681,7 @@ const EmailEditor = () => {
         ),
       );
       setSavedTemplateId(verified.id);
+      setTplShared(verified.shared);
       setLastSavedAt(new Date());
       void queryClient.invalidateQueries({ queryKey: platformEmailTemplatesQueryKey });
       if (!silent) {
@@ -691,6 +714,32 @@ const EmailEditor = () => {
     void persistTemplate(false);
   };
 
+  const handleDuplicateReadOnlyTemplate = async () => {
+    if (!token || !savedTemplateId || tplDuplicating) return;
+    setTplDuplicating(true);
+    try {
+      const copy = await duplicateEmailTemplate(token, savedTemplateId);
+      editor.setPreviewName(copy.name);
+      editor.setSubject(copy.subject || copy.name);
+      setTplDescription(copy.description || "");
+      editor.loadTemplate(copy.blocks, copy.globalStyles);
+      setTplShared(copy.shared);
+      setTplReadOnly(false);
+      setTplIsOwner(true);
+      setTplOwnerEmail(copy.ownerEmail);
+      setSavedTemplateId(copy.id);
+      setLastSavedAt(new Date(copy.updatedAt));
+      baselinePendingRef.current = true;
+      void queryClient.invalidateQueries({ queryKey: platformEmailTemplatesQueryKey });
+      navigate(`/templates/${copy.id}/edit`, { replace: true });
+      toast.success("Copia creada. Ahora puedes editarla.");
+    } catch {
+      toast.error("No se pudo duplicar la plantilla");
+    } finally {
+      setTplDuplicating(false);
+    }
+  };
+
   useEffect(() => {
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
       if (!isDirtyRef.current) return;
@@ -702,13 +751,13 @@ const EmailEditor = () => {
   }, []);
 
   useEffect(() => {
-    if (!isTemplateMode || !savedTemplateId) return;
+    if (!isTemplateMode || !savedTemplateId || tplReadOnly) return;
     const timer = window.setInterval(() => {
       if (!isDirtyRef.current || persistInFlightRef.current) return;
       void persistTemplateRef.current(true);
     }, AUTOSAVE_INTERVAL_MS);
     return () => window.clearInterval(timer);
-  }, [isTemplateMode, savedTemplateId, lastSavedAt]);
+  }, [isTemplateMode, savedTemplateId, lastSavedAt, tplReadOnly]);
 
   // Fallback to inline selector only if neither template nor URL param is set.
   if (editor.showTemplateSelector && !isTemplateMode && !searchParams.get("template")) {
@@ -775,9 +824,15 @@ const EmailEditor = () => {
             <Button variant="outline" size="sm" onClick={handleExportHtml}><Download className="w-3.5 h-3.5 mr-1.5" />Exportar</Button>
             {isTemplateMode ? (
               <>
-                <Button size="sm" onClick={openSaveTemplateDialog}>
-                  <Save className="w-3.5 h-3.5 mr-1.5" />Guardar plantilla
-                </Button>
+                {tplReadOnly ? (
+                  <Button size="sm" variant="outline" onClick={() => void handleDuplicateReadOnlyTemplate()} disabled={tplDuplicating}>
+                    <Copy className="w-3.5 h-3.5 mr-1.5" />Duplicar para editar
+                  </Button>
+                ) : (
+                  <Button size="sm" onClick={openSaveTemplateDialog}>
+                    <Save className="w-3.5 h-3.5 mr-1.5" />Guardar plantilla
+                  </Button>
+                )}
                 <Button
                   variant="default"
                   size="sm"
@@ -815,9 +870,15 @@ const EmailEditor = () => {
           <Button variant="outline" size="sm" onClick={handleExportHtml}><Download className="w-3.5 h-3.5 mr-1" />Exportar</Button>
           {isTemplateMode ? (
             <>
-              <Button size="sm" onClick={openSaveTemplateDialog}>
-                <Save className="w-3.5 h-3.5 mr-1" />Guardar
-              </Button>
+              {tplReadOnly ? (
+                <Button size="sm" variant="outline" onClick={() => void handleDuplicateReadOnlyTemplate()} disabled={tplDuplicating}>
+                  <Copy className="w-3.5 h-3.5 mr-1" />Duplicar
+                </Button>
+              ) : (
+                <Button size="sm" onClick={openSaveTemplateDialog}>
+                  <Save className="w-3.5 h-3.5 mr-1" />Guardar
+                </Button>
+              )}
               <Button
                 size="sm"
                 className="bg-success text-success-foreground hover:bg-success/90"
@@ -843,6 +904,26 @@ const EmailEditor = () => {
               </Button>
             </>
           )}
+        </div>
+      )}
+
+      {isTemplateMode && tplReadOnly && (
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 rounded-lg border bg-muted/50 px-3 py-2 text-sm">
+          <Eye className="w-4 h-4 shrink-0 text-muted-foreground" />
+          <p className="flex-1 text-muted-foreground">
+            Plantilla compartida por <span className="font-medium text-foreground">{tplOwnerEmail}</span>.
+            Puedes verla y usarla en campañas; para cambiarla, crea tu propia copia.
+          </p>
+        </div>
+      )}
+      {isTemplateMode && !tplReadOnly && !tplIsOwner && tplShared && (
+        <div className="flex items-center gap-2 rounded-lg border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+          <Users className="w-4 h-4 shrink-0" />
+          <p>
+            Estás editando como administrador una plantilla de{" "}
+            <span className="font-medium text-foreground">{tplOwnerEmail}</span>. Los cambios
+            los verán todos los usuarios de tu empresa.
+          </p>
         </div>
       )}
 
@@ -1333,8 +1414,9 @@ const EmailEditor = () => {
               {savedTemplateId ? "Actualizar plantilla" : "Guardar como plantilla"}
             </DialogTitle>
             <DialogDescription>
-              La plantilla se guarda en tu cuenta y podrás reutilizarla al crear
-              nuevas campañas.
+              {tplShared
+                ? "La plantilla se guarda en tu cuenta y la pueden usar todos los usuarios de tu empresa."
+                : "La plantilla se guarda en tu cuenta y podrás reutilizarla al crear nuevas campañas."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -1358,6 +1440,25 @@ const EmailEditor = () => {
                 disabled={tplSubmitting}
               />
             </div>
+            {canShareTemplates && tplIsOwner && (
+              <div className="flex items-start justify-between gap-3 rounded-lg border p-3">
+                <div className="space-y-0.5">
+                  <Label htmlFor="tpl-shared" className="flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5" /> Compartir con mi empresa
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Los demás usuarios podrán verla, usarla y duplicarla. Solo tú y los
+                    administradores podrán modificarla.
+                  </p>
+                </div>
+                <Switch
+                  id="tpl-shared"
+                  checked={tplShared}
+                  onCheckedChange={setTplShared}
+                  disabled={tplSubmitting}
+                />
+              </div>
+            )}
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button type="button" variant="outline" onClick={() => setSaveTplDialogOpen(false)} disabled={tplSubmitting}>

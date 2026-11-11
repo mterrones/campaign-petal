@@ -22,7 +22,7 @@ import {
   type ClientWebhookStatus,
   type ClientWebhooksApi,
 } from "@/lib/clientWebhooks";
-import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { Copy, KeyRound, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 
 const STATUS_LABELS: Record<ClientWebhookStatus, string> = {
   sent: "Enviado",
@@ -51,6 +51,8 @@ export function ClientWebhooksManager({
   const [url, setUrl] = useState("");
   const [statuses, setStatuses] = useState<ClientWebhookStatus[]>(["delivered"]);
   const [isActive, setIsActive] = useState(true);
+  /** Signing secret of a just-created webhook: the API returns it only once. */
+  const [createdSecret, setCreatedSecret] = useState<string | null>(null);
 
   const listQuery = useQuery({
     queryKey: api.queryKey,
@@ -97,11 +99,12 @@ export function ClientWebhooksManager({
         statuses,
         isActive,
       }),
-    onSuccess: () => {
+    onSuccess: (data) => {
       void queryClient.invalidateQueries({ queryKey: api.queryKey });
       setFormOpen(false);
       resetForm();
       toast.success("Webhook creado. Enviamos un evento configured a la URL.");
+      if (data.webhook.secret) setCreatedSecret(data.webhook.secret);
     },
     onError: (err) => {
       toast.error(err instanceof ApiError ? err.message : "Error al crear webhook");
@@ -294,6 +297,48 @@ export function ClientWebhooksManager({
               )}
               {editing ? "Guardar" : "Crear"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={createdSecret !== null}
+        onOpenChange={(o) => {
+          if (!o) setCreatedSecret(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <KeyRound className="h-4 w-4" />
+              Secreto de firma del webhook
+            </DialogTitle>
+            <DialogDescription>
+              Guárdalo ahora: <strong>solo se muestra esta vez</strong>. Úsalo
+              para verificar la cabecera <code>x-enviamas-signature</code> de
+              cada evento.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 min-w-0 break-all rounded bg-muted px-2 py-1.5 text-xs">
+              {createdSecret}
+            </code>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              aria-label="Copiar secreto"
+              onClick={() => {
+                if (!createdSecret) return;
+                void navigator.clipboard.writeText(createdSecret);
+                toast.success("Secreto copiado");
+              }}
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setCreatedSecret(null)}>Ya lo guardé</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

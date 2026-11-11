@@ -23,12 +23,19 @@ export function getApiBaseUrl(): string {
   return "http://localhost:3000";
 }
 
+/**
+ * Base URL of the API SL gateway, INCLUDING its path prefix: the gateway
+ * serves POST {base}/messages (e.g. https://api.sl.enviamas.pe/v1/mailling/messages),
+ * not the backend's /mailling/v1 path.
+ */
+export const DEFAULT_GATEWAY_API_BASE_URL = "https://api.sl.enviamas.pe/v1/mailling";
+
 export function getGatewayApiBaseUrl(): string {
   const raw = import.meta.env.VITE_GATEWAY_API_BASE_URL;
   if (raw !== undefined && String(raw).trim() !== "") {
     return String(raw).replace(/\/$/, "");
   }
-  return "https://api.sl.mailling.enviamas.pe";
+  return DEFAULT_GATEWAY_API_BASE_URL;
 }
 
 export function getStoredToken(): string | null {

@@ -90,21 +90,73 @@ const getResponseExample = `{
   "cc": [],
   "bcc": [],
   "subject": "…",
-  "deliveryStatus": "enqueued | sent | failed | bounced | delivered",
+  "deliveryStatus": "enqueued | sent | delayed | delivered | bounced | failed | blacklisted | sandbox",
   "errorCode": null,
   "errorDetail": null,
   "createdAt": "<ISO8601>",
   "sentAt": "<ISO8601> | null"
 }`;
 
+const webhookSignatureExample = `// Node.js (Express): usar el body crudo, no el JSON ya parseado
+import crypto from "node:crypto";
+
+app.post("/hooks/enviamas", express.raw({ type: "application/json" }), (req, res) => {
+  const ts = req.header("x-enviamas-timestamp") ?? "";
+  const sig = req.header("x-enviamas-signature") ?? "";
+  const expected = crypto
+    .createHmac("sha256", process.env.ENVIAMAS_WEBHOOK_SECRET)
+    .update(\`\${ts}.\${req.body.toString("utf8")}\`)
+    .digest("hex");
+  const ok =
+    sig.length === expected.length &&
+    crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected)) &&
+    Math.abs(Date.now() / 1000 - Number(ts)) < 300;
+  if (!ok) return res.sendStatus(401);
+  const event = JSON.parse(req.body.toString("utf8"));
+  // ...
+  res.sendStatus(200);
+});`;
+
+const DELIVERY_STATUS_LEGEND: [string, string][] = [
+  ["enqueued", "En cola, aún no enviado"],
+  ["sent", "Aceptado por el proveedor de envío"],
+  ["delayed", "Entrega demorada; el proveedor sigue reintentando"],
+  ["delivered", "Entregado al servidor del destinatario"],
+  ["bounced", "Rebotado por el servidor del destinatario"],
+  ["failed", "No se pudo enviar; ver errorCode / errorDetail"],
+  ["blacklisted", "No enviado: el destinatario está en la lista de supresión (baja, queja)"],
+  ["sandbox", "Entorno de pruebas: registrado pero no enviado"],
+];
+
+export function DeliveryStatusLegend() {
+  return (
+    <ul className="mt-2 space-y-1 text-[11px] text-muted-foreground list-none pl-0">
+      {DELIVERY_STATUS_LEGEND.map(([status, text]) => (
+        <li key={status} className="flex gap-2">
+          <code className="bg-muted px-1 rounded shrink-0">{status}</code>
+          <span>{text}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export const ApiKeyMessagesDocs = forwardRef<HTMLDivElement, ApiKeyDocsProps>(
   function ApiKeyMessagesDocs({ copyToClipboard }, ref) {
     const apiBase = getApiBaseUrl();
     const gatewayBase = getGatewayApiBaseUrl();
-    const postPath = `${mailingApiV1Path}/messages`;
     const getPath = `${mailingApiV1Path}/messages/:id`;
-    const postGatewayUrl = `${gatewayBase}${postPath}`;
+    // The gateway base already includes its path prefix (/v1/mailling).
+    const postGatewayUrl = `${gatewayBase}/messages`;
+    const postPath = (() => {
+      try {
+        return new URL(postGatewayUrl).pathname;
+      } catch {
+        return "/messages";
+      }
+    })();
     const getApiUrl = `${apiBase}${mailingApiV1Path}/messages/<id>`;
+    const getGatewayUrl = `${gatewayBase}/messages/<id>`;
     const curlPostGateway = `curl -X POST "${postGatewayUrl}" \\
   -H "Content-Type: application/json" \\
   --header 'x-api-key: mek_YOUR_KEY' \\
@@ -167,7 +219,14 @@ export const ApiKeyMessagesDocs = forwardRef<HTMLDivElement, ApiKeyDocsProps>(
                       <p className="text-[11px] text-muted-foreground mt-1">
                         Adjuntos opcionales con{" "}
                         <code className="bg-muted px-1 rounded">attachments</code> (base64):
-                        máximo 5 archivos y 10MB total decodificado.
+                        máximo 5 archivos y 7 MB en total (tamaño real, sin base64).
+                      </p>
+                      <p className="text-[11px] text-muted-foreground mt-1">
+                        En <strong>API SL</strong> el límite práctico es de unos{" "}
+                        <strong>4 MB</strong> de adjuntos: AWS rechaza con{" "}
+                        <strong>413</strong> las peticiones de más de 6 MB y el base64
+                        ocupa un 33&nbsp;% más que el archivo. Para adjuntos de hasta
+                        7 MB use <strong>API</strong>.
                       </p>
                       <CopyablePre
                         content={postBodyExample}
@@ -197,7 +256,7 @@ export const ApiKeyMessagesDocs = forwardRef<HTMLDivElement, ApiKeyDocsProps>(
                               ["html", "Cond.", "Al menos uno de html o text"],
                               ["text", "Cond.", "Al menos uno de html o text"],
                               ["from", "No", "Opcional; default servidor"],
-                              ["attachments", "No", "Array base64 (máx 5, total 10MB)"],
+                              ["attachments", "No", "Array base64 (máx 5, total 7 MB; ~4 MB en API SL)"],
                             ].map(([c, r, d]) => (
                               <tr key={c}>
                                 <td className="px-3 py-1.5">
@@ -228,11 +287,12 @@ export const ApiKeyMessagesDocs = forwardRef<HTMLDivElement, ApiKeyDocsProps>(
                     <DocsSection title="Códigos HTTP">
                       <ul className="space-y-1 text-xs text-muted-foreground list-none pl-0">
                         {[
-                          ["400", "Validación del body"],
-                          ["202", "Destinatario no válido → mensaje failed (RECIPIENT_INVALID)"],
-                          ["401", "Auth inválida"],
-                          ["403", "Sin cliente (plataforma)"],
-                          ["429", "Rate limit o cuota diaria (Basic plataforma: 100/día Lima)"],
+                          ["202", "Aceptado. Destinatario, remitente y adjuntos se validan después: un error (p. ej. RECIPIENT_INVALID, FROM) aparece como failed en el GET o el webhook"],
+                          ["400", "JSON inválido o body fuera del esquema"],
+                          ["401", "API key ausente, inválida o revocada"],
+                          ["413", "Petición de más de 6 MB (límite de AWS)"],
+                          ["429", "Demasiadas peticiones (50/s, ráfaga de 100)"],
+                          ["500", "Error interno; puede reintentar"],
                         ].map(([code, t]) => (
                           <li key={code} className="flex gap-2">
                             <span className="font-mono text-foreground w-9 shrink-0">{code}</span>
@@ -263,6 +323,12 @@ export const ApiKeyMessagesDocs = forwardRef<HTMLDivElement, ApiKeyDocsProps>(
                 url={getApiUrl}
                 copyToClipboard={copyToClipboard}
               />
+              <EndpointUrlRow
+                method="GET"
+                label="API SL"
+                url={getGatewayUrl}
+                copyToClipboard={copyToClipboard}
+              />
             </DocsSection>
 
             <Separator />
@@ -281,15 +347,16 @@ export const ApiKeyMessagesDocs = forwardRef<HTMLDivElement, ApiKeyDocsProps>(
                 <strong>200</strong> — estado actual del mensaje.
               </p>
               <p className="text-[11px] text-muted-foreground mt-2">
-                Tras un <strong>202</strong> en API SL, puede consultar este endpoint
-                en API. Un <strong>404</strong> temporal significa que el mensaje aún
-                se está procesando.
+                Disponible en API y en API SL; ambos devuelven lo mismo. Tras un{" "}
+                <strong>202</strong> en API SL, un <strong>404</strong> temporal
+                significa que el mensaje aún se está procesando.
               </p>
               <CopyablePre
                 content={getResponseExample}
                 onCopy={copyToClipboard}
                 className="mt-2"
               />
+              <DeliveryStatusLegend />
             </DocsSection>
 
             <DocsSection title="Códigos HTTP">
@@ -299,6 +366,7 @@ export const ApiKeyMessagesDocs = forwardRef<HTMLDivElement, ApiKeyDocsProps>(
                   ["401", "Auth inválida"],
                   ["403", "Sin cliente asociado"],
                   ["404", "No encontrado (o aún en procesamiento tras API SL)"],
+                  ["429", "Demasiadas consultas (API SL: 5/s, ráfaga de 10)"],
                 ].map(([code, t]) => (
                   <li key={code} className="flex gap-2">
                     <span className="font-mono text-foreground w-9 shrink-0">{code}</span>
@@ -362,7 +430,28 @@ export const ApiKeyMessagesDocs = forwardRef<HTMLDivElement, ApiKeyDocsProps>(
               Al crear un webhook activo (o al cambiar la URL / activarlo) se envía
               un POST de prueba con{" "}
               <code className="bg-muted px-1 rounded">event: "configured"</code>
-              . Si el endpoint falla, la lambda reintenta una vez.
+              . Si el endpoint falla o tarda más de 8 segundos, se reintenta una
+              vez.
+            </p>
+            <p className="font-medium text-foreground pt-1">Verificar la firma</p>
+            <p>
+              Cada POST incluye las cabeceras{" "}
+              <code className="bg-muted px-1 rounded">x-enviamas-timestamp</code>{" "}
+              (segundos Unix) y{" "}
+              <code className="bg-muted px-1 rounded">x-enviamas-signature</code>:
+              un HMAC-SHA256 en hexadecimal de{" "}
+              <code className="bg-muted px-1 rounded">{"{timestamp}.{body}"}</code>{" "}
+              (body crudo, tal como llega), firmado con el secreto del webhook. El
+              secreto se muestra <strong className="text-foreground">una sola vez</strong>,
+              al crear el webhook.
+            </p>
+            <CopyablePre
+              onCopy={copyToClipboard}
+              content={webhookSignatureExample}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Rechace eventos con un timestamp de más de 5 minutos de antigüedad para
+              evitar reenvíos.
             </p>
           </CardContent>
         </Card>

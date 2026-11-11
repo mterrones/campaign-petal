@@ -161,9 +161,9 @@ export function ApiHostComparisonCards({
                   to={`${apiVsApiSlPath}#get-message`}
                   className="font-medium text-primary underline-offset-4 hover:underline"
                 >
-                  GET /mailling/v1/messages/:id
+                  GET /messages/:id
                 </Link>{" "}
-                en API para ver el estado final del mensaje.
+                (o un webhook de estado) para ver el estado final del mensaje.
               </>,
               "Solo acepta autenticación por API Key",
             ]}

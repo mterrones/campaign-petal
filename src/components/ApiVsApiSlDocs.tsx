@@ -17,7 +17,8 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-import { getApiBaseUrl, mailingApiV1Path } from "@/lib/api";
+import { getApiBaseUrl, getGatewayApiBaseUrl, mailingApiV1Path } from "@/lib/api";
+import { DeliveryStatusLegend } from "@/components/ApiKeysDocsPanels";
 import { ApiHostComparisonOverview } from "@/components/ApiHostComparisonCards";
 import {
   CopyablePre,
@@ -38,7 +39,7 @@ const getResponseExample = `{
   "cc": [],
   "bcc": [],
   "subject": "…",
-  "deliveryStatus": "enqueued | sent | failed | bounced | delivered",
+  "deliveryStatus": "enqueued | sent | delayed | delivered | bounced | failed | blacklisted | sandbox",
   "errorCode": null,
   "errorDetail": null,
   "createdAt": "<ISO8601>",
@@ -55,6 +56,10 @@ export function ApiVsApiSlDocs() {
   --header 'x-api-key: mek_YOUR_KEY'`;
   const curlGetApiBasic = `curl "${getExampleUrl}" \\
   -u "usuario@example.com:contraseña"`;
+  const gatewayBase = getGatewayApiBaseUrl();
+  const getGatewayUrl = `${gatewayBase}/messages/<id>`;
+  const curlGetGateway = `curl "${gatewayBase}/messages/<UUID>" \\
+  --header 'x-api-key: mek_YOUR_KEY'`;
 
   return (
     <div className="space-y-6">
@@ -92,9 +97,9 @@ export function ApiVsApiSlDocs() {
                 <p className="font-medium text-foreground">Esperar entre 2 y 10 segundos</p>
                 <p className="text-muted-foreground mt-0.5">
                   Consulte{" "}
-                  <code className="bg-muted px-1 rounded">{getApiUrl.replace("<id>", ":id")}</code>{" "}
-                  en <strong className="text-foreground">API</strong> (GET no está
-                  disponible en API SL), con una pausa de 2 a 10 segundos entre intentos.
+                  <code className="bg-muted px-1 rounded">{getGatewayUrl.replace("<id>", ":id")}</code>{" "}
+                  (o el mismo GET en <strong className="text-foreground">API</strong>),
+                  con una pausa de 2 a 10 segundos entre intentos.
                   Un <strong className="text-foreground">404</strong> temporal significa
                   aún en procesamiento; siga consultando.
                 </p>
@@ -134,12 +139,12 @@ export function ApiVsApiSlDocs() {
           <Alert className="mt-4 border-amber-500/30 bg-amber-500/5 [&>svg]:text-amber-600">
             <Webhook className="h-4 w-4" />
             <AlertTitle className="text-amber-800 dark:text-amber-200 text-[11px] uppercase tracking-wide">
-              Próximamente
+              Alternativa al GET
             </AlertTitle>
             <AlertDescription className="text-xs text-muted-foreground">
-              <strong className="text-foreground">Webhook de estados de mensaje</strong>{" "}
-              — recibirá notificaciones automáticas cuando el mensaje cambie de estado,
-              sin necesidad de hacer poll con GET.
+              <strong className="text-foreground">Webhooks de estado</strong> — configúrelos
+              en API Keys → Webhooks para recibir un POST en cada cambio de estado, sin
+              hacer poll con GET.
             </AlertDescription>
           </Alert>
         </CardContent>
@@ -152,8 +157,9 @@ export function ApiVsApiSlDocs() {
             GET {`${mailingApiV1Path}/messages/:id`}
           </CardTitle>
           <CardDescription className="text-xs">
-            Solo disponible en <strong className="text-foreground">API</strong> (no en
-            API SL). Use este endpoint para consultar el estado final tras POST en API SL.
+            Disponible en <strong className="text-foreground">API</strong> y en{" "}
+            <strong className="text-foreground">API SL</strong>; ambos devuelven lo
+            mismo. Úselo para consultar el estado final tras un POST en API SL.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 pt-0">
@@ -175,6 +181,23 @@ export function ApiVsApiSlDocs() {
                 <Copy className="w-3.5 h-3.5" />
               </Button>
             </div>
+            <div className="flex items-start gap-2 mt-1 flex-wrap">
+              <Badge className="bg-primary/10 text-primary border-primary/20 font-mono text-[10px] shrink-0">
+                GET
+              </Badge>
+              <code className="text-xs bg-muted px-2 py-1 rounded break-all flex-1 min-w-0">
+                {getGatewayUrl}
+              </code>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0"
+                onClick={() => copyText(getGatewayUrl)}
+              >
+                <Copy className="w-3.5 h-3.5" />
+              </Button>
+            </div>
           </DocsSection>
 
           <Separator />
@@ -185,6 +208,7 @@ export function ApiVsApiSlDocs() {
               examples={[
                 { label: "API", command: curlGetApi },
                 { label: "API (Basic Auth)", command: curlGetApiBasic },
+                { label: "API SL", command: curlGetGateway },
               ]}
             />
           </DocsSection>
@@ -206,6 +230,7 @@ export function ApiVsApiSlDocs() {
               onCopy={copyText}
               className="mt-2"
             />
+            <DeliveryStatusLegend />
           </DocsSection>
         </CardContent>
       </Card>
@@ -227,9 +252,11 @@ export function ApiVsApiSlDocs() {
               {[
                 ["Validación síncrona", "Sí", "No (vía GET)"],
                 ["Respuesta POST típica", "202 + estado", "202 + id (aceptado)"],
-                ["Basic Auth plataforma", "Sí", "No"],
+                ["Basic Auth plataforma", "Sí", "No en POST (sí en GET)"],
                 ["Cola / reintentos", "No", "Sí"],
-                ["Migración", "—", "Solo cambiar host"],
+                ["GET estado", "Sí", "Sí"],
+                ["Adjuntos (total)", "Hasta 7 MB", "~4 MB (límite de AWS: 6 MB por petición)"],
+                ["Migración", "—", "Cambiar host y ruta: /mailling/v1/messages → /v1/mailling/messages; usar API Key"],
               ].map(([label, api, sl]) => (
                 <tr key={label}>
                   <td className="px-3 py-2 font-medium text-foreground">{label}</td>

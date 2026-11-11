@@ -11,10 +11,14 @@ import {
   Trash2,
   Send,
   Search,
+  Users,
+  Lock,
+  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -44,6 +48,7 @@ import {
   duplicateEmailTemplate,
   listEmailTemplatesWithMigration,
   platformEmailTemplatesQueryKey,
+  setEmailTemplateShared,
   type UserTemplate,
 } from "@/lib/userTemplates";
 import { exportHtml } from "@/components/email-editor/htmlExport";
@@ -86,6 +91,7 @@ const Templates = () => {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [toDelete, setToDelete] = useState<UserTemplate | null>(null);
+  const [scope, setScope] = useState<"all" | "mine" | "shared">("all");
 
   const listQuery = useQuery({
     queryKey: platformEmailTemplatesQueryKey,
@@ -93,7 +99,9 @@ const Templates = () => {
     enabled: !!token,
   });
 
-  const templates = listQuery.data ?? [];
+  const templates = useMemo(() => listQuery.data?.templates ?? [], [listQuery.data]);
+  const canShare = listQuery.data?.canShare ?? false;
+  const hasTeammateTemplates = templates.some((t) => !t.isOwner);
 
   const duplicateMutation = useMutation({
     mutationFn: (id: string) => duplicateEmailTemplate(token!, id),
@@ -103,6 +111,22 @@ const Templates = () => {
     },
     onError: () => {
       toast.error("No se pudo duplicar la plantilla");
+    },
+  });
+
+  const sharingMutation = useMutation({
+    mutationFn: ({ id, shared }: { id: string; shared: boolean }) =>
+      setEmailTemplateShared(token!, id, shared),
+    onSuccess: (tpl) => {
+      toast.success(
+        tpl.shared
+          ? "Plantilla compartida con tu empresa"
+          : "La plantilla ya no se comparte",
+      );
+      void queryClient.invalidateQueries({ queryKey: platformEmailTemplatesQueryKey });
+    },
+    onError: () => {
+      toast.error("No se pudo cambiar cómo se comparte la plantilla");
     },
   });
 
@@ -120,14 +144,18 @@ const Templates = () => {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return templates;
-    return templates.filter(
+    const inScope = templates.filter((t) =>
+      scope === "mine" ? t.isOwner : scope === "shared" ? !t.isOwner : true,
+    );
+    if (!q) return inScope;
+    return inScope.filter(
       (t) =>
         t.name.toLowerCase().includes(q) ||
         t.description.toLowerCase().includes(q) ||
-        t.subject.toLowerCase().includes(q),
+        t.subject.toLowerCase().includes(q) ||
+        t.ownerEmail.toLowerCase().includes(q),
     );
-  }, [templates, search]);
+  }, [templates, search, scope]);
 
   const handleDuplicate = (id: string) => {
     if (!token) return;
@@ -150,6 +178,7 @@ const Templates = () => {
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Plantillas</h1>
           <p className="text-muted-foreground text-sm mt-1">
             Crea, reutiliza y administra diseños de correo para tus campañas.
+            {canShare && " Comparte las que quieras con los usuarios de tu empresa."}
           </p>
         </div>
         <Link to="/templates/new">
@@ -160,14 +189,40 @@ const Templates = () => {
       </div>
 
       {templates.length > 0 && (
-        <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar plantilla..."
-            className="pl-9"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="relative w-full sm:max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar plantilla..."
+              className="pl-9"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          {hasTeammateTemplates && (
+            <div className="inline-flex rounded-lg border bg-card p-0.5 text-sm self-start">
+              {(
+                [
+                  ["all", "Todas"],
+                  ["mine", "Mías"],
+                  ["shared", "De mi empresa"],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setScope(value)}
+                  className={`px-3 py-1 rounded-md transition-colors ${
+                    scope === value
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -227,6 +282,21 @@ const Templates = () => {
                     <p className="text-xs text-muted-foreground truncate">
                       {tpl.description || tpl.subject || "Sin descripción"}
                     </p>
+                    {tpl.shared && (
+                      <div className="flex items-center gap-1.5 mt-1.5 min-w-0">
+                        <Badge variant="secondary" className="gap-1 px-2 py-0 text-[11px] font-medium shrink-0">
+                          <Users className="w-3 h-3" /> Compartida
+                        </Badge>
+                        {!tpl.isOwner && (
+                          <span
+                            className="text-[11px] text-muted-foreground truncate"
+                            title={tpl.ownerEmail}
+                          >
+                            por {tpl.ownerEmail}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -236,18 +306,48 @@ const Templates = () => {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => navigate(`/templates/${tpl.id}/edit`)}>
-                        <Pencil className="w-4 h-4 mr-2" /> Editar
+                        {tpl.canEdit ? (
+                          <>
+                            <Pencil className="w-4 h-4 mr-2" /> Editar
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="w-4 h-4 mr-2" /> Ver
+                          </>
+                        )}
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleDuplicate(tpl.id)}>
                         <Copy className="w-4 h-4 mr-2" /> Duplicar
                       </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        className="text-destructive focus:text-destructive"
-                        onClick={() => setToDelete(tpl)}
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" /> Eliminar
-                      </DropdownMenuItem>
+                      {tpl.canEdit && canShare && (
+                        <DropdownMenuItem
+                          disabled={sharingMutation.isPending}
+                          onClick={() =>
+                            sharingMutation.mutate({ id: tpl.id, shared: !tpl.shared })
+                          }
+                        >
+                          {tpl.shared ? (
+                            <>
+                              <Lock className="w-4 h-4 mr-2" /> Dejar de compartir
+                            </>
+                          ) : (
+                            <>
+                              <Users className="w-4 h-4 mr-2" /> Compartir con mi empresa
+                            </>
+                          )}
+                        </DropdownMenuItem>
+                      )}
+                      {tpl.canEdit && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => setToDelete(tpl)}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" /> Eliminar
+                          </DropdownMenuItem>
+                        </>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -269,8 +369,9 @@ const Templates = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar plantilla?</AlertDialogTitle>
             <AlertDialogDescription>
-              Se eliminará "{toDelete?.name}" de forma permanente. Esta acción
-              no se puede deshacer.
+              Se eliminará "{toDelete?.name}" de forma permanente
+              {toDelete?.shared ? ", también para los usuarios de tu empresa" : ""}.
+              Esta acción no se puede deshacer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

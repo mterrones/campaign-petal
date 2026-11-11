@@ -132,7 +132,7 @@ const AdminQueues = () => {
               <Activity className="h-4 w-4" />
               Cola gateway (SQS)
             </CardTitle>
-            <CardDescription>api.sl.mailling.enviamas.pe</CardDescription>
+            <CardDescription>api.sl.enviamas.pe</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             {!statusQuery.data?.gatewayQueue.configured ? (
